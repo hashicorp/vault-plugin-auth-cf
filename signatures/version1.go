@@ -50,26 +50,26 @@ func Sign(logger hclog.Logger, pathToPrivateKey, bodyJson string) (signature str
 }
 
 // Note - we will need to pass the signing time as a header like the Date header
-func Verify(logger hclog.Logger, pathToClientCert, signature, bodyJson, signingTime string) error {
+func Verify(logger hclog.Logger, pathToClientCerts, signature, bodyJson, signingTime string) (*x509.Certificate, error) {
 	logger.Debug("verifying signature")
 
 	// Make sure we can retrieve and read in the client certificate.
-	rest, err := ioutil.ReadFile(pathToClientCert)
+	rest, err := ioutil.ReadFile(pathToClientCerts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Reconstruct the string that should have been signed.
 	toSign, err := generateStringToSign(logger, bodyJson, signingTime)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	hashed := generateHash(toSign)
 
 	// Use the CA certificate to verify the signature we've received.
 	sig, err := base64.URLEncoding.DecodeString(signature)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var lastErr error
@@ -96,13 +96,13 @@ func Verify(logger hclog.Logger, pathToClientCert, signature, bodyJson, signingT
 				continue
 			}
 			// Success
-			return nil
+			return clientCert, nil
 		}
 	}
-	return lastErr
+	return nil, lastErr
 }
 
-func IsIssuer(pathToCACert, pathToClientCert string) (bool, error) {
+func IsIssuer(pathToCACert string, clientCert *x509.Certificate) (bool, error) {
 
 	caCertBytes, err := ioutil.ReadFile(pathToCACert)
 	if err != nil {
@@ -114,37 +114,15 @@ func IsIssuer(pathToCACert, pathToClientCert string) (bool, error) {
 		return false, errors.New("couldn't append CA certificates")
 	}
 
-	rest, err := ioutil.ReadFile(pathToClientCert)
-	if err != nil {
-		return false, err
-	}
-
 	verifyOpts := x509.VerifyOptions{
 		Roots: pool,
 	}
 
-	var block *pem.Block
-	var lastErr error
-	for {
-		block, rest = pem.Decode(rest)
-		if block == nil {
-			break
-		}
-		clientCerts, err := x509.ParseCertificates(block.Bytes)
-		if err != nil {
-			lastErr = err
-			continue
-		}
-		for _, clientCert := range clientCerts {
-			if _, err := clientCert.Verify(verifyOpts); err != nil {
-				lastErr = err
-				continue
-			}
-			// Success
-			return true, nil
-		}
+	if _, err := clientCert.Verify(verifyOpts); err != nil {
+		return false, err
 	}
-	return false, lastErr
+	// Success
+	return true, nil
 }
 
 func generateStringToSign(logger hclog.Logger, bodyJson, signingTime string) (string, error) {

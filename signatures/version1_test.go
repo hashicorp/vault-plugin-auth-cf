@@ -14,7 +14,7 @@ var homeDir = func () string {
 	return strings.Replace(wd, "/signatures", "", -1)
 }()
 
-func TestSignVerify(t *testing.T) {
+func TestSignVerifyIssuedByFakes(t *testing.T) {
 	body := `{"hello": "world"}`
 
 	loggerOpts := hclog.DefaultOptions
@@ -26,8 +26,39 @@ func TestSignVerify(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := Verify(logger, homeDir + "/fixtures/fake/instance.crt", signature, body, signingTime.Format(TimeFormat)); err != nil {
+	clientCert, err := Verify(logger, homeDir + "/fixtures/fake/instance.crt", signature, body, signingTime.Format(TimeFormat))
+	if err != nil {
 		t.Fatal(err)
+	}
+
+	isIssuer, err := IsIssuer(homeDir + "/fixtures/fake/ca.crt", clientCert)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !isIssuer {
+		t.Fatal("CA is correct but this says it's not")
+	}
+}
+
+func TestSignVerifyIssuedByReal(t *testing.T) {
+	body := `{"hello": "world"}`
+
+	loggerOpts := hclog.DefaultOptions
+	loggerOpts.Level = hclog.Debug
+	logger := hclog.New(loggerOpts)
+
+	signature, signingTime, err := Sign(logger, homeDir + "/fixtures/real/instance.key", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	clientCert, err := Verify(logger, homeDir + "/fixtures/real/instance.crt", signature, body, signingTime.Format(TimeFormat))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := IsIssuer(homeDir + "/fixtures/real/ca.crt", clientCert); err == nil {
+		t.Fatal(`expected error: x509: certificate has expired or is not yet valid`)
 	}
 }
 
@@ -39,15 +70,5 @@ func TestGenerateStringToSign(t *testing.T) {
 	}
 	if stringToSign != "time=2017-01-01T01:01:01Z&body=pbxAhSQxn83Jh9R8QJDpYoGllxkDz3SEgzlNpJArvnU=" {
 		t.Fatalf(`expected "time=2017-01-01T01:01:01Z&body=pbxAhSQxn83Jh9R8QJDpYoGllxkDz3SEgzlNpJArvnU=" but received %q`, stringToSign)
-	}
-}
-
-func TestIsIssuer(t *testing.T) {
-	is, err := IsIssuer(homeDir + "/fixtures/real/ca.crt", homeDir + "/fixtures/real/instance.crt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !is {
-		t.Fatal("CA is correct but this says it's not")
 	}
 }

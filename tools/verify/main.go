@@ -79,13 +79,14 @@ func main(){
 	}
 
 	// Make sure that the signature ties out with the client certificate.
-	if err := signatures.Verify(logger, dir+*pathToClientCert, signature, bodyJson, signingTime.Format(signatures.TimeFormat)); err != nil {
+	clientCert, err := signatures.Verify(logger, dir+*pathToClientCert, signature, bodyJson, signingTime.Format(signatures.TimeFormat))
+	if err != nil {
 		logger.Error(fmt.Sprintf(`couldn't verify signature: %s'`, err))
 		os.Exit(1)
 	}
 
 	// Make sure the client certificate was issued by the given CA.
-	isIssuer, err := signatures.IsIssuer(dir+*pathToCACert, dir+*pathToClientCert)
+	isIssuer, err := signatures.IsIssuer(dir+*pathToCACert, clientCert)
 	if err != nil {
 		logger.Error(fmt.Sprintf(`couldn't confirm issuing CA: %s'`, err))
 		os.Exit(1)
