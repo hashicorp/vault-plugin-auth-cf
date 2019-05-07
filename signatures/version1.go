@@ -9,12 +9,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/pkg/errors"
 )
 
 const TimeFormat = "2006-01-02T15:04:05Z"
