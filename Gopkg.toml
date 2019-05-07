@@ -29,10 +29,6 @@
   name = "github.com/hashicorp/go-hclog"
   version = "0.9.0"
 
-[[constraint]]
-  name = "github.com/pkg/errors"
-  version = "0.8.1"
-
 [prune]
   go-tests = true
   unused-packages = true
