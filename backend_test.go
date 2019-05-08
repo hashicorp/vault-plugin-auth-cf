@@ -12,7 +12,7 @@ func TestBackend(t *testing.T) {
 	ctx := context.Background()
 	storage := &logical.InmemStorage{}
 
-	caCertBytes, err := ioutil.ReadFile("fixtures/fake/ca.crt")
+	caCertBytes, err := ioutil.ReadFile("testdata/fake/ca.crt")
 	if err != nil {
 		t.Fatal(err)
 	}

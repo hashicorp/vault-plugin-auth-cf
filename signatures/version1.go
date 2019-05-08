@@ -28,6 +28,9 @@ func Sign(logger hclog.Logger, pathToPrivateKey, bodyJson string) (signature str
 		return "", time.Time{}, err
 	}
 	block, _ := pem.Decode(keyBytes)
+	if block == nil {
+		return "", time.Time{}, fmt.Errorf("unable to decode RSA private key from %s", keyBytes)
+	}
 	rsaPrivateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
 		return "", time.Time{}, err
@@ -99,11 +102,13 @@ func Verify(logger hclog.Logger, pathToClientCerts, signature, bodyJson, signing
 			return clientCert, nil
 		}
 	}
+	if lastErr == nil {
+		return nil, errors.New("no matching client certificate found")
+	}
 	return nil, lastErr
 }
 
 func IsIssuer(pathToCACert string, clientCert *x509.Certificate) (bool, error) {
-
 	caCertBytes, err := ioutil.ReadFile(pathToCACert)
 	if err != nil {
 		return false, err
@@ -141,7 +146,7 @@ func generateStringToSign(logger hclog.Logger, bodyJson, signingTime string) (st
 	bodySha := base64.URLEncoding.EncodeToString(hasher.Sum(nil))
 	logger.Debug(fmt.Sprintf("created body sha: %s", bodySha))
 
-	toSign := "time=" + signingTime + "&body=" + fmt.Sprintf("%s", bodySha)
+	toSign := fmt.Sprintf("time=%s&body=%s", signingTime, bodySha)
 
 	logger.Debug(fmt.Sprintf("generated string to sign: %s", toSign))
 	return toSign, nil
