@@ -11,7 +11,7 @@ Usage (example is using the tool from the home directory):
 		-instance-key=/fixtures/real/instance.key \
 		-debug=true
 
- */
+*/
 
 import (
 	"flag"
@@ -37,7 +37,7 @@ var (
 	debugLevel = flag.Bool("debug", false, `Set to "true" for debug-level logging`)
 )
 
-func main(){
+func main() {
 	flag.Parse()
 
 	loggerOpts := hclog.DefaultOptions
@@ -60,7 +60,7 @@ func main(){
 	}
 	logger.Debug("ca cert: " + *pathToCACert)
 	logger.Debug("client cert: " + *pathToClientCert)
-	logger.Debug("client key: "+ *pathToClientKey)
+	logger.Debug("client key: " + *pathToClientKey)
 
 	dir, err := os.Getwd()
 	if err != nil {
