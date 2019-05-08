@@ -92,7 +92,7 @@ func (e *Env) ReadConfig(t *testing.T) {
 		t.Fatalf("bad: resp: %#v\nerr:%v", resp, err)
 	}
 	if resp == nil {
-		t.Fatal("expected nil response to represent a 204")
+		t.Fatal("response shouldn't be nil")
 	}
 	if resp.Data["certificate"] != e.TestConf.Certificate {
 		t.Fatalf("expected %s but received %s", e.TestConf.Certificate, resp.Data["certificate"])
@@ -120,5 +120,12 @@ func (e *Env) DeleteConfig(t *testing.T) {
 	}
 	if resp != nil {
 		t.Fatal("expected nil response to represent a 204")
+	}
+	val, err := e.Storage.Get(e.Ctx, "config")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if val != nil {
+		t.Fatal("config shouldn't still be in storage")
 	}
 }
