@@ -102,6 +102,9 @@ func Verify(logger hclog.Logger, pathToClientCerts, signature, bodyJson, signing
 			return clientCert, nil
 		}
 	}
+	if lastErr == nil {
+		return nil, errors.New("no matching client certificate found")
+	}
 	return nil, lastErr
 }
 
