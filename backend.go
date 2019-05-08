@@ -21,7 +21,7 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 	}
 
 	// Populate the configCache from storage.
-	config, err := StoredConfig(ctx, conf.StorageView)
+	config, err := storedConfig(ctx, conf.StorageView)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +39,7 @@ type backend struct {
 	//   - On startup, it's populated from storage if it exists.
 	//   - On create config calls, it's added or overwritten in the cache.
 	//   - On delete config calls, it's removed from the cache.
-	// Use CachedConfig() to retrieve the present value.
+	// For convenience, use b.cachedConfig() to retrieve its present value.
 	configCache *cache.Cache
 }
 

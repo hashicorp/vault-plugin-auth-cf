@@ -46,13 +46,13 @@ func (b *backend) pathConfig() *framework.Path {
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.CreateOperation: &framework.PathOperation{
-				Callback: b.OperationConfigCreate,
+				Callback: b.operationConfigCreate,
 			},
 			logical.ReadOperation: &framework.PathOperation{
-				Callback: b.OperationConfigRead,
+				Callback: b.operationConfigRead,
 			},
 			logical.DeleteOperation: &framework.PathOperation{
-				Callback: b.OperationConfigDelete,
+				Callback: b.operationConfigDelete,
 			},
 		},
 		HelpSynopsis:    pathConfigSyn,
@@ -60,7 +60,7 @@ func (b *backend) pathConfig() *framework.Path {
 	}
 }
 
-func (b *backend) OperationConfigCreate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) operationConfigCreate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	config, err := NewConfiguration(
 		data.Get("certificate").(string),
 		data.Get("pcf_api_addr").(string),
@@ -81,10 +81,13 @@ func (b *backend) OperationConfigCreate(ctx context.Context, req *logical.Reques
 	return nil, nil
 }
 
-func (b *backend) OperationConfigRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	config, err := b.CachedConfig(ctx, req.Storage)
+func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	config, err := b.cachedConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
+	}
+	if config == nil {
+		return nil, nil
 	}
 	return &logical.Response{
 		Data: map[string]interface{}{
@@ -95,7 +98,7 @@ func (b *backend) OperationConfigRead(ctx context.Context, req *logical.Request,
 	}, nil
 }
 
-func (b *backend) OperationConfigDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) operationConfigDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	if err := req.Storage.Delete(ctx, configStorageKey); err != nil {
 		return nil, err
 	}
@@ -130,8 +133,10 @@ type Configuration struct {
 	verifyOpts *x509.VerifyOptions
 }
 
-// CachedConfig may return a nil config without an error if it's unset.
-func (b *backend) CachedConfig(ctx context.Context, storage logical.Storage) (*Configuration, error) {
+// cachedConfig may return nil without error if the user doesn't currently have a config.
+// The cache should always reflect the current stored config, so if the config
+// is nil, there's no need to do an additional check in storage.
+func (b *backend) cachedConfig(ctx context.Context, storage logical.Storage) (*Configuration, error) {
 	configIfc, found := b.configCache.Get(configStorageKey)
 	if !found {
 		return nil, nil
@@ -143,8 +148,8 @@ func (b *backend) CachedConfig(ctx context.Context, storage logical.Storage) (*C
 	return config, nil
 }
 
-// StoredConfig may return a nil config without an error if it's unset.
-func StoredConfig(ctx context.Context, storage logical.Storage) (*Configuration, error) {
+// storedConfig may return nil without error if the user doesn't currently have a config.
+func storedConfig(ctx context.Context, storage logical.Storage) (*Configuration, error) {
 	entry, err := storage.Get(ctx, configStorageKey)
 	if err != nil {
 		return nil, err
