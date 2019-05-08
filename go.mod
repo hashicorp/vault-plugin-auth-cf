@@ -2,4 +2,38 @@ module github.com/hashicorp/vault-plugin-auth-pcf
 
 go 1.12
 
-require github.com/hashicorp/go-hclog v0.9.0
+require (
+	github.com/armon/go-radix v1.0.0
+	github.com/golang/protobuf v1.2.0
+	github.com/golang/snappy v0.0.0-20180518054509-2e65f85255db
+	github.com/hashicorp/errwrap v1.0.0
+	github.com/hashicorp/go-cleanhttp v0.5.0
+	github.com/hashicorp/go-hclog v0.0.0-20181001195459-61d530d6c27f
+	github.com/hashicorp/go-immutable-radix v1.0.0
+	github.com/hashicorp/go-multierror v1.0.0
+	github.com/hashicorp/go-plugin v0.0.0-20181004024435-314501b665e0
+	github.com/hashicorp/go-retryablehttp v0.5.2
+	github.com/hashicorp/go-rootcerts v0.0.0-20160503143440-6bb64b370b90
+	github.com/hashicorp/go-sockaddr v0.0.0-20180320115054-6d291a969b86
+	github.com/hashicorp/go-uuid v1.0.0
+	github.com/hashicorp/go-version v1.0.0
+	github.com/hashicorp/golang-lru v0.5.1
+	github.com/hashicorp/hcl v0.0.0-20180906183839-65a6292f0157
+	github.com/hashicorp/vault v1.1.2
+	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d
+	github.com/mitchellh/go-homedir v1.1.0
+	github.com/mitchellh/go-testing-interface v1.0.0
+	github.com/mitchellh/mapstructure v1.1.2
+	github.com/oklog/run v1.0.0
+	github.com/patrickmn/go-cache v2.1.0+incompatible
+	github.com/pierrec/lz4 v0.0.0-20181005164709-635575b42742
+	github.com/ryanuber/go-glob v0.0.0-20170128012129-256dc444b735
+	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
+	golang.org/x/net v0.0.0-20190503192946-f4e77d36d62c
+	golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a
+	golang.org/x/text v0.3.2
+	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2
+	google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873
+	google.golang.org/grpc v1.20.1
+	gopkg.in/square/go-jose.v2 v2.3.0
+)
