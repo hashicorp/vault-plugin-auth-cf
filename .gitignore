@@ -14,6 +14,6 @@
 # Jetbrains
 .idea*
 
-# The binary
-*vault-plugin-auth-pcf*
-*verify*
+# Binaries
+cmd/vault-plugin-auth-pcf/vault-plugin-auth-pcf
+cmd/verify/verify
