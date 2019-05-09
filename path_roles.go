@@ -253,22 +253,16 @@ const pathListRolesHelpSyn = "List the existing roles in this backend."
 
 const pathListRolesHelpDesc = "Roles will be listed by the role name."
 
-// TODO update these...
 const pathRolesHelpSyn = `
-Read, write and reference policies and roles that API keys or STS credentials can be made for.
+Read, write and reference policies and roles that tokens can be made for.
 `
 
 const pathRolesHelpDesc = `
 This path allows you to read and write roles that are used to
-create API keys or STS credentials.
-If you supply a role ARN, that role must have been created to allow trusted actors,
-and the access key and secret that will be used to call AssumeRole (configured at
-the /config path) must qualify as a trusted actor.
-If you instead supply inline and/or remote policies to be applied, a user and API
-key will be dynamically created. The remote policies will be applied to that user,
-and the inline policies will also be dynamically created and applied.
-To obtain an API key or STS credential after the role is created, if the
-backend is mounted at "alicloud" and you create a role at "alicloud/roles/deploy",
-then a user could request access credentials at "alicloud/creds/deploy".
-To validate the keys, attempt to read an access key after writing the policy.
+create Vault tokens.
+Once configured, credentials will be able to be obtained using this role name
+if the caller can successfully provide a client certificate, and sign it
+using a valid secret key. The client certificate provided must have been issued
+by the configured certficate authority. Its parameters must also match anything
+you've listed as "bound".
 `
