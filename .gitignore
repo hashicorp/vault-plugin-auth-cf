@@ -17,3 +17,6 @@
 # Binaries
 cmd/vault-plugin-auth-pcf/vault-plugin-auth-pcf
 cmd/verify/verify
+
+pkg*
+bin*
