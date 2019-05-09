@@ -14,8 +14,13 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 	}
 	b.Backend = &framework.Backend{
 		Help: backendHelp,
+		PathsSpecial: &logical.Paths{
+			SealWrapStorage: []string{"config"},
+		},
 		Paths: []*framework.Path{
 			b.pathConfig(),
+			b.pathListRoles(),
+			b.pathRoles(),
 		},
 		BackendType: logical.TypeCredential,
 	}
