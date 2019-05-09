@@ -230,7 +230,8 @@ func (b *backend) operationRolesRead(ctx context.Context, req *logical.Request, 
 }
 
 func (b *backend) operationRolesDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	if err := req.Storage.Delete(ctx, roleStoragePrefix); err != nil {
+	roleName := data.Get("name").(string)
+	if err := req.Storage.Delete(ctx, roleStoragePrefix+roleName); err != nil {
 		return nil, err
 	}
 	return nil, nil

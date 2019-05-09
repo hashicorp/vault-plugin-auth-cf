@@ -24,6 +24,9 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 		},
 		BackendType: logical.TypeCredential,
 	}
+	if err := b.Setup(ctx, conf); err != nil {
+		return nil, err
+	}
 
 	// Populate the configCache from storage.
 	config, err := storedConfig(ctx, conf.StorageView)
