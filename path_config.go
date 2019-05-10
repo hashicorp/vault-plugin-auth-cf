@@ -5,7 +5,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
-	
+
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -106,8 +106,8 @@ func (b *backend) operationConfigDelete(ctx context.Context, req *logical.Reques
 	return nil, nil
 }
 
-func NewConfiguration(certificate, pcfAPIAddr, pcfUsername, pcfPassword string) (*Configuration, error) {
-	config := &Configuration{
+func NewConfiguration(certificate, pcfAPIAddr, pcfUsername, pcfPassword string) (*configuration, error) {
+	config := &configuration{
 		Certificate: certificate,
 		PCFAPIAddr:  pcfAPIAddr,
 		PCFUsername: pcfUsername,
@@ -121,7 +121,7 @@ func NewConfiguration(certificate, pcfAPIAddr, pcfUsername, pcfPassword string) 
 	return config, nil
 }
 
-type Configuration struct {
+type configuration struct {
 	Certificate string `json:"certificate"`
 	PCFAPIAddr  string `json:"pcf_api_addr"`
 	PCFUsername string `json:"pcf_username"`
@@ -136,12 +136,12 @@ type Configuration struct {
 // cachedConfig may return nil without error if the user doesn't currently have a config.
 // The cache should always reflect the current stored config, so if the config
 // is nil, there's no need to do an additional check in storage.
-func (b *backend) cachedConfig(ctx context.Context, storage logical.Storage) (*Configuration, error) {
+func (b *backend) cachedConfig(ctx context.Context, storage logical.Storage) (*configuration, error) {
 	configIfc, found := b.configCache.Get(configStorageKey)
 	if !found {
 		return nil, nil
 	}
-	config, ok := configIfc.(*Configuration)
+	config, ok := configIfc.(*configuration)
 	if !ok {
 		return nil, fmt.Errorf("couldn't read config: %+v is a %t", configIfc, configIfc)
 	}
@@ -149,7 +149,7 @@ func (b *backend) cachedConfig(ctx context.Context, storage logical.Storage) (*C
 }
 
 // storedConfig may return nil without error if the user doesn't currently have a config.
-func storedConfig(ctx context.Context, storage logical.Storage) (*Configuration, error) {
+func storedConfig(ctx context.Context, storage logical.Storage) (*configuration, error) {
 	entry, err := storage.Get(ctx, configStorageKey)
 	if err != nil {
 		return nil, err
