@@ -61,7 +61,7 @@ func TestBackend(t *testing.T) {
 		Storage:  storage,
 		Backend:  backend,
 		TestConf: testConf,
-		TestRole: &role{
+		TestRole: &roleEntry{
 			BoundAppIDs:      []string{"bound app id 1", "bound app id 2"},
 			BoundSpaceIDs:    []string{"bound space id 1", "bound space id 2"},
 			BoundOrgIDs:      []string{"bound org id 1", "bound org id 2"},
@@ -89,7 +89,7 @@ type Env struct {
 
 	Backend  logical.Backend
 	TestConf *configuration
-	TestRole *role
+	TestRole *roleEntry
 }
 
 func (e *Env) CreateConfig(t *testing.T) {
@@ -194,36 +194,36 @@ func (e *Env) CreateRole(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := &role{}
-	if err := entry.DecodeJSON(r); err != nil {
+	role := &roleEntry{}
+	if err := entry.DecodeJSON(role); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(e.TestRole.BoundAppIDs, r.BoundAppIDs) {
-		t.Fatalf("expected %s but received %s", e.TestRole.BoundAppIDs, r.BoundAppIDs)
+	if !reflect.DeepEqual(e.TestRole.BoundAppIDs, role.BoundAppIDs) {
+		t.Fatalf("expected %s but received %s", e.TestRole.BoundAppIDs, role.BoundAppIDs)
 	}
-	if !reflect.DeepEqual(e.TestRole.BoundSpaceIDs, r.BoundSpaceIDs) {
-		t.Fatalf("expected %s but received %s", e.TestRole.BoundSpaceIDs, r.BoundSpaceIDs)
+	if !reflect.DeepEqual(e.TestRole.BoundSpaceIDs, role.BoundSpaceIDs) {
+		t.Fatalf("expected %s but received %s", e.TestRole.BoundSpaceIDs, role.BoundSpaceIDs)
 	}
-	if !reflect.DeepEqual(e.TestRole.BoundOrgIDs, r.BoundOrgIDs) {
-		t.Fatalf("expected %s but received %s", e.TestRole.BoundOrgIDs, r.BoundOrgIDs)
+	if !reflect.DeepEqual(e.TestRole.BoundOrgIDs, role.BoundOrgIDs) {
+		t.Fatalf("expected %s but received %s", e.TestRole.BoundOrgIDs, role.BoundOrgIDs)
 	}
-	if !reflect.DeepEqual(e.TestRole.BoundInstanceIDs, r.BoundInstanceIDs) {
-		t.Fatalf("expected %s but received %s", e.TestRole.BoundInstanceIDs, r.BoundInstanceIDs)
+	if !reflect.DeepEqual(e.TestRole.BoundInstanceIDs, role.BoundInstanceIDs) {
+		t.Fatalf("expected %s but received %s", e.TestRole.BoundInstanceIDs, role.BoundInstanceIDs)
 	}
-	if !reflect.DeepEqual(e.TestRole.BoundCIDRs, r.BoundCIDRs) {
-		t.Fatalf("expected %s but received %s", e.TestRole.BoundCIDRs, r.BoundCIDRs)
+	if !reflect.DeepEqual(e.TestRole.BoundCIDRs, role.BoundCIDRs) {
+		t.Fatalf("expected %s but received %s", e.TestRole.BoundCIDRs, role.BoundCIDRs)
 	}
-	if !reflect.DeepEqual(e.TestRole.Policies, r.Policies) {
-		t.Fatalf("expected %s but received %s", e.TestRole.Policies, r.Policies)
+	if !reflect.DeepEqual(e.TestRole.Policies, role.Policies) {
+		t.Fatalf("expected %s but received %s", e.TestRole.Policies, role.Policies)
 	}
-	if e.TestRole.TTL*time.Second != r.TTL {
-		t.Fatalf("expected %s but received %s", e.TestRole.TTL*time.Second, r.TTL)
+	if e.TestRole.TTL*time.Second != role.TTL {
+		t.Fatalf("expected %s but received %s", e.TestRole.TTL*time.Second, role.TTL)
 	}
-	if e.TestRole.MaxTTL*time.Second != r.MaxTTL {
-		t.Fatalf("expected %s but received %s", e.TestRole.MaxTTL*time.Second, r.MaxTTL)
+	if e.TestRole.MaxTTL*time.Second != role.MaxTTL {
+		t.Fatalf("expected %s but received %s", e.TestRole.MaxTTL*time.Second, role.MaxTTL)
 	}
-	if e.TestRole.Period*time.Second != r.Period {
-		t.Fatalf("expected %s but received %s", e.TestRole.Period*time.Second, r.Period)
+	if e.TestRole.Period*time.Second != role.Period {
+		t.Fatalf("expected %s but received %s", e.TestRole.Period*time.Second, role.Period)
 	}
 }
 
@@ -252,36 +252,36 @@ func (e *Env) UpdateRole(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := &role{}
-	if err := entry.DecodeJSON(r); err != nil {
+	role := &roleEntry{}
+	if err := entry.DecodeJSON(role); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(e.TestRole.BoundAppIDs, r.BoundAppIDs) {
-		t.Fatalf("expected %s but received %s", e.TestRole.BoundAppIDs, r.BoundAppIDs)
+	if !reflect.DeepEqual(e.TestRole.BoundAppIDs, role.BoundAppIDs) {
+		t.Fatalf("expected %s but received %s", e.TestRole.BoundAppIDs, role.BoundAppIDs)
 	}
-	if !reflect.DeepEqual([]string{}, r.BoundSpaceIDs) {
-		t.Fatalf("expected %s but received %s", []string{}, r.BoundSpaceIDs)
+	if !reflect.DeepEqual([]string{}, role.BoundSpaceIDs) {
+		t.Fatalf("expected %s but received %s", []string{}, role.BoundSpaceIDs)
 	}
-	if !reflect.DeepEqual([]string{"foo"}, r.BoundOrgIDs) {
-		t.Fatalf("expected %s but received %s", []string{"foo"}, r.BoundOrgIDs)
+	if !reflect.DeepEqual([]string{"foo"}, role.BoundOrgIDs) {
+		t.Fatalf("expected %s but received %s", []string{"foo"}, role.BoundOrgIDs)
 	}
-	if !reflect.DeepEqual(e.TestRole.BoundInstanceIDs, r.BoundInstanceIDs) {
-		t.Fatalf("expected %s but received %s", e.TestRole.BoundInstanceIDs, r.BoundInstanceIDs)
+	if !reflect.DeepEqual(e.TestRole.BoundInstanceIDs, role.BoundInstanceIDs) {
+		t.Fatalf("expected %s but received %s", e.TestRole.BoundInstanceIDs, role.BoundInstanceIDs)
 	}
-	if len(r.BoundCIDRs) != 0 {
-		t.Fatalf("expected %s but received %s", []string{}, r.BoundCIDRs)
+	if len(role.BoundCIDRs) != 0 {
+		t.Fatalf("expected %s but received %s", []string{}, role.BoundCIDRs)
 	}
-	if !reflect.DeepEqual(e.TestRole.Policies, r.Policies) {
-		t.Fatalf("expected %s but received %s", e.TestRole.Policies, r.Policies)
+	if !reflect.DeepEqual(e.TestRole.Policies, role.Policies) {
+		t.Fatalf("expected %s but received %s", e.TestRole.Policies, role.Policies)
 	}
-	if e.TestRole.TTL*time.Second != r.TTL {
-		t.Fatalf("expected %s but received %s", e.TestRole.TTL*time.Second, r.TTL)
+	if e.TestRole.TTL*time.Second != role.TTL {
+		t.Fatalf("expected %s but received %s", e.TestRole.TTL*time.Second, role.TTL)
 	}
-	if time.Duration(180)*time.Second != r.MaxTTL {
-		t.Fatalf("expected %s but received %s", e.TestRole.MaxTTL*time.Second, r.MaxTTL)
+	if time.Duration(180)*time.Second != role.MaxTTL {
+		t.Fatalf("expected %s but received %s", e.TestRole.MaxTTL*time.Second, role.MaxTTL)
 	}
-	if e.TestRole.Period*time.Second != r.Period {
-		t.Fatalf("expected %s but received %s", e.TestRole.Period*time.Second, r.Period)
+	if e.TestRole.Period*time.Second != role.Period {
+		t.Fatalf("expected %s but received %s", e.TestRole.Period*time.Second, role.Period)
 	}
 }
 
@@ -303,36 +303,36 @@ func (e *Env) ReadRole(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	r := &role{}
-	if err := json.Unmarshal(b, r); err != nil {
+	role := &roleEntry{}
+	if err := json.Unmarshal(b, role); err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(e.TestRole.BoundAppIDs, r.BoundAppIDs) {
-		t.Fatalf("expected %s but received %s", e.TestRole.BoundAppIDs, r.BoundAppIDs)
+	if !reflect.DeepEqual(e.TestRole.BoundAppIDs, role.BoundAppIDs) {
+		t.Fatalf("expected %s but received %s", e.TestRole.BoundAppIDs, role.BoundAppIDs)
 	}
-	if !reflect.DeepEqual([]string{}, r.BoundSpaceIDs) {
-		t.Fatalf("expected %s but received %s", []string{}, r.BoundSpaceIDs)
+	if !reflect.DeepEqual([]string{}, role.BoundSpaceIDs) {
+		t.Fatalf("expected %s but received %s", []string{}, role.BoundSpaceIDs)
 	}
-	if !reflect.DeepEqual([]string{"foo"}, r.BoundOrgIDs) {
-		t.Fatalf("expected %s but received %s", []string{"foo"}, r.BoundOrgIDs)
+	if !reflect.DeepEqual([]string{"foo"}, role.BoundOrgIDs) {
+		t.Fatalf("expected %s but received %s", []string{"foo"}, role.BoundOrgIDs)
 	}
-	if !reflect.DeepEqual(e.TestRole.BoundInstanceIDs, r.BoundInstanceIDs) {
-		t.Fatalf("expected %s but received %s", e.TestRole.BoundInstanceIDs, r.BoundInstanceIDs)
+	if !reflect.DeepEqual(e.TestRole.BoundInstanceIDs, role.BoundInstanceIDs) {
+		t.Fatalf("expected %s but received %s", e.TestRole.BoundInstanceIDs, role.BoundInstanceIDs)
 	}
-	if len(r.BoundCIDRs) != 0 {
-		t.Fatalf("expected %s but received %s", []string{}, r.BoundCIDRs)
+	if len(role.BoundCIDRs) != 0 {
+		t.Fatalf("expected %s but received %s", []string{}, role.BoundCIDRs)
 	}
-	if !reflect.DeepEqual(e.TestRole.Policies, r.Policies) {
-		t.Fatalf("expected %s but received %s", e.TestRole.Policies, r.Policies)
+	if !reflect.DeepEqual(e.TestRole.Policies, role.Policies) {
+		t.Fatalf("expected %s but received %s", e.TestRole.Policies, role.Policies)
 	}
-	if time.Duration(60) != r.TTL {
-		t.Fatalf("expected %s but received %s", time.Duration(60), r.TTL)
+	if time.Duration(60) != role.TTL {
+		t.Fatalf("expected %s but received %s", time.Duration(60), role.TTL)
 	}
-	if time.Duration(180) != r.MaxTTL {
-		t.Fatalf("expected %s but received %s", time.Duration(180), r.MaxTTL)
+	if time.Duration(180) != role.MaxTTL {
+		t.Fatalf("expected %s but received %s", time.Duration(180), role.MaxTTL)
 	}
-	if time.Duration(300) != r.Period {
-		t.Fatalf("expected %s but received %s", time.Duration(300), r.Period)
+	if time.Duration(300) != role.Period {
+		t.Fatalf("expected %s but received %s", time.Duration(300), role.Period)
 	}
 }
 
