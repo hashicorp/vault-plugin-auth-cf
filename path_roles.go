@@ -132,55 +132,55 @@ func (b *backend) operationRolesExistenceCheck(ctx context.Context, req *logical
 func (b *backend) operationRolesCreateUpdate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	roleName := data.Get("name").(string)
 
-	r := &role{}
+	role := &roleEntry{}
 	if req.Operation == logical.UpdateOperation {
 		entry, err := req.Storage.Get(ctx, roleStoragePrefix+roleName)
 		if err != nil {
 			return nil, err
 		}
 		if entry != nil {
-			if err := entry.DecodeJSON(r); err != nil {
+			if err := entry.DecodeJSON(role); err != nil {
 				return nil, err
 			}
 		}
 	}
 	if raw, ok := data.GetOk("bound_application_ids"); ok {
-		r.BoundAppIDs = raw.([]string)
+		role.BoundAppIDs = raw.([]string)
 	}
 	if raw, ok := data.GetOk("bound_space_ids"); ok {
-		r.BoundSpaceIDs = raw.([]string)
+		role.BoundSpaceIDs = raw.([]string)
 	}
 	if raw, ok := data.GetOk("bound_organization_ids"); ok {
-		r.BoundOrgIDs = raw.([]string)
+		role.BoundOrgIDs = raw.([]string)
 	}
 	if raw, ok := data.GetOk("bound_instance_ids"); ok {
-		r.BoundInstanceIDs = raw.([]string)
+		role.BoundInstanceIDs = raw.([]string)
 	}
 	if raw, ok := data.GetOk("bound_cidrs"); ok {
 		parsedCIDRs, err := parseutil.ParseAddrs(raw)
 		if err != nil {
 			return nil, err
 		}
-		r.BoundCIDRs = parsedCIDRs
+		role.BoundCIDRs = parsedCIDRs
 	}
 	if raw, ok := data.GetOk("policies"); ok {
-		r.Policies = raw.([]string)
+		role.Policies = raw.([]string)
 	}
 	if raw, ok := data.GetOk("ttl"); ok {
-		r.TTL = time.Duration(raw.(int)) * time.Second
+		role.TTL = time.Duration(raw.(int)) * time.Second
 	}
 	if raw, ok := data.GetOk("max_ttl"); ok {
-		r.MaxTTL = time.Duration(raw.(int)) * time.Second
+		role.MaxTTL = time.Duration(raw.(int)) * time.Second
 	}
 	if raw, ok := data.GetOk("period"); ok {
-		r.Period = time.Duration(raw.(int)) * time.Second
+		role.Period = time.Duration(raw.(int)) * time.Second
 	}
 
-	if r.MaxTTL > 0 && r.TTL > r.MaxTTL {
+	if role.MaxTTL > 0 && role.TTL > role.MaxTTL {
 		return nil, errors.New("ttl exceeds max_ttl")
 	}
 
-	entry, err := logical.StorageEntryJSON(roleStoragePrefix+roleName, r)
+	entry, err := logical.StorageEntryJSON(roleStoragePrefix+roleName, role)
 	if err != nil {
 		return nil, err
 	}
@@ -188,9 +188,9 @@ func (b *backend) operationRolesCreateUpdate(ctx context.Context, req *logical.R
 		return nil, err
 	}
 
-	if r.TTL > b.System().MaxLeaseTTL() {
+	if role.TTL > b.System().MaxLeaseTTL() {
 		resp := &logical.Response{}
-		resp.AddWarning(fmt.Sprintf("ttl of %d exceeds the system max ttl of %d, the latter will be used during login", r.TTL, b.System().MaxLeaseTTL()))
+		resp.AddWarning(fmt.Sprintf("ttl of %d exceeds the system max ttl of %d, the latter will be used during login", role.TTL, b.System().MaxLeaseTTL()))
 		return resp, nil
 	}
 	return nil, nil
@@ -199,7 +199,7 @@ func (b *backend) operationRolesCreateUpdate(ctx context.Context, req *logical.R
 func (b *backend) operationRolesRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	roleName := data.Get("name").(string)
 
-	r := &role{}
+	role := &roleEntry{}
 	entry, err := req.Storage.Get(ctx, roleStoragePrefix+roleName)
 	if err != nil {
 		return nil, err
@@ -207,24 +207,24 @@ func (b *backend) operationRolesRead(ctx context.Context, req *logical.Request, 
 	if entry == nil {
 		return nil, nil
 	}
-	if err := entry.DecodeJSON(r); err != nil {
+	if err := entry.DecodeJSON(role); err != nil {
 		return nil, err
 	}
-	cidrs := make([]string, len(r.BoundCIDRs))
-	for i, cidr := range r.BoundCIDRs {
+	cidrs := make([]string, len(role.BoundCIDRs))
+	for i, cidr := range role.BoundCIDRs {
 		cidrs[i] = cidr.String()
 	}
 	return &logical.Response{
 		Data: map[string]interface{}{
-			"bound_application_ids":  r.BoundAppIDs,
-			"bound_space_ids":        r.BoundSpaceIDs,
-			"bound_organization_ids": r.BoundOrgIDs,
-			"bound_instance_ids":     r.BoundInstanceIDs,
+			"bound_application_ids":  role.BoundAppIDs,
+			"bound_space_ids":        role.BoundSpaceIDs,
+			"bound_organization_ids": role.BoundOrgIDs,
+			"bound_instance_ids":     role.BoundInstanceIDs,
 			"bound_cidrs":            cidrs,
-			"policies":               r.Policies,
-			"ttl":                    r.TTL / time.Second,
-			"max_ttl":                r.MaxTTL / time.Second,
-			"period":                 r.Period / time.Second,
+			"policies":               role.Policies,
+			"ttl":                    role.TTL / time.Second,
+			"max_ttl":                role.MaxTTL / time.Second,
+			"period":                 role.Period / time.Second,
 		},
 	}, nil
 }
@@ -237,7 +237,7 @@ func (b *backend) operationRolesDelete(ctx context.Context, req *logical.Request
 	return nil, nil
 }
 
-type role struct {
+type roleEntry struct {
 	BoundAppIDs      []string                      `json:"bound_application_ids"`
 	BoundSpaceIDs    []string                      `json:"bound_space_ids"`
 	BoundOrgIDs      []string                      `json:"bound_organization_ids"`
