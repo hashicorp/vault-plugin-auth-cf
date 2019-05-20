@@ -20,3 +20,6 @@ cmd/verify/verify
 
 pkg*
 bin*
+
+# Ignore fake certificates generated for tests
+testdata/fake/*
