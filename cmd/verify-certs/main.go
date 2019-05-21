@@ -5,20 +5,16 @@ package main
 This tool is for verifying that ca.crt, instance.crt, and instance.key work together.
 Usage (example is using the tool from the home directory):
 
-	$ verify \
-		-ca-cert=/fixtures/real/ca.crt \
-		-instance-cert=/fixtures/real/instance.crt \
-		-instance-key=/fixtures/real/instance.key \
-		-debug=true
-
+	$ verify-certs -ca-cert=ca.crt -instance-cert=instance.crt -instance-key=instance.key
 */
 
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"time"
 
-	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
 )
 
@@ -33,68 +29,66 @@ var (
 
 	// In a PCF environment, this will be the value for the environment variable of "CF_INSTANCE_KEY".
 	pathToClientKey = flag.String("instance-key", "", `The path to the client's private key: '/path/to/instance.key'`)
-
-	debugLevel = flag.Bool("debug", false, `Set to "true" for debug-level logging`)
 )
 
 func main() {
 	flag.Parse()
 
-	loggerOpts := hclog.DefaultOptions
-	if debugLevel != nil && *debugLevel {
-		loggerOpts.Level = hclog.Debug
-	}
-	logger := hclog.New(loggerOpts)
-
 	if pathToCACert == nil || *pathToCACert == "" {
-		logger.Error(`"ca-cert" is required`)
+		fmt.Println(`"ca-cert" is required`)
 		os.Exit(1)
 	}
 	if pathToClientCert == nil || *pathToClientCert == "" {
-		logger.Error(`"client-cert" is required`)
+		fmt.Println(`"client-cert" is required`)
 		os.Exit(1)
 	}
 	if pathToClientKey == nil || *pathToClientKey == "" {
-		logger.Error(`"client-key" is required`)
+		fmt.Println(`"client-key" is required`)
 		os.Exit(1)
 	}
-	logger.Debug("ca cert: " + *pathToCACert)
-	logger.Debug("client cert: " + *pathToClientCert)
-	logger.Debug("client key: " + *pathToClientKey)
 
 	dir, err := os.Getwd()
 	if err != nil {
-		logger.Error("couldn't get working directory: " + err.Error())
+		fmt.Printf("couldn't get working directory: %s\n", err)
+		os.Exit(1)
 	}
 
-	// Make up a test body since we're only checking that the
-	// certificates work together here.
-	bodyJson := `{"hello": "world"}`
-
-	// Sign something
-	signature, signingTime, err := signatures.Sign(logger, dir+*pathToClientKey, bodyJson)
+	clientCertBytes, err := ioutil.ReadFile(*pathToClientCert)
 	if err != nil {
-		logger.Error(fmt.Sprintf(`couldn't perform signature: %s'`, err))
+		fmt.Printf("couldn't read %s: %s\n", *pathToClientCert, err)
+		os.Exit(1)
+	}
+
+	signatureData := &signatures.SignatureData{
+		SigningTime: time.Now(),
+		Certificate: string(clientCertBytes),
+		Role:        "test-role",
+	}
+
+	// Create a signature.
+	signature, err := signatures.Sign(dir+"/"+*pathToClientKey, signatureData)
+	if err != nil {
+		fmt.Printf(`couldn't perform signature: %s\n`, err)
 		os.Exit(1)
 	}
 
 	// Make sure that the signature ties out with the client certificate.
-	clientCert, err := signatures.Verify(logger, dir+*pathToClientCert, signature, bodyJson, signingTime.Format(signatures.TimeFormat))
+	clientCert, err := signatures.Verify(signature, signatureData)
 	if err != nil {
-		logger.Error(fmt.Sprintf(`couldn't verify signature: %s'`, err))
+		fmt.Printf(`couldn't verify signature: %s\n`, err)
 		os.Exit(1)
 	}
 
 	// Make sure the client certificate was issued by the given CA.
-	isIssuer, err := signatures.IsIssuer(dir+*pathToCACert, clientCert)
+	isIssuer, err := signatures.IsIssuer(dir+"/"+*pathToCACert, clientCert)
 	if err != nil {
-		logger.Error(fmt.Sprintf(`couldn't confirm issuing CA: %s'`, err))
+		fmt.Printf(`couldn't confirm issuing CA: %s\n`, err)
 		os.Exit(1)
 	}
 	if !isIssuer {
-		logger.Error("client certificate wasn't issued by this CA")
+		fmt.Println("client certificate wasn't issued by this CA")
 		os.Exit(1)
 	}
-	logger.Info("successfully verified that the given certificates and keys are related to each other")
+	fmt.Println("successfully verified that the given certificates and keys are related to each other")
 	os.Exit(0)
 }

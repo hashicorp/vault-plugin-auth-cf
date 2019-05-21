@@ -13,9 +13,10 @@ rm instance.csr
 rm ca.srl
 
 # Move the files into testdata
-TARGET_DIR="$(pwd)/testdata/fake"
-mkdir $TARGET_DIR
+TARGET_DIR="$(pwd)/testdata/fake-certificates"
+rm -rf ${TARGET_DIR}
+mkdir ${TARGET_DIR}
 echo "Placing new, valid ca.crt, instance.crt, and instance.key in $TARGET_DIR"
-mv ca.crt $TARGET_DIR
-mv instance.crt $TARGET_DIR
-mv instance.key $TARGET_DIR
+mv ca.crt ${TARGET_DIR}
+mv instance.crt ${TARGET_DIR}
+mv instance.key ${TARGET_DIR}

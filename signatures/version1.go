@@ -7,105 +7,111 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"time"
 
-	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-multierror"
 )
 
 const TimeFormat = "2006-01-02T15:04:05Z"
 
-func Sign(logger hclog.Logger, pathToPrivateKey, bodyJson string) (signature string, signingTime time.Time, err error) {
-	logger.Debug("building signature")
+type SignatureData struct {
+	SigningTime time.Time
+	Role        string
+	Certificate string
+}
 
-	// Make sure we can retrieve and read in the RSA private key.
+func (s *SignatureData) hash() []byte {
+	sum := sha256.Sum256([]byte(s.toSign()))
+	return sum[:]
+}
+
+func (s *SignatureData) toSign() string {
+	toHash := ""
+	for _, field := range []string{s.SigningTime.UTC().Format(TimeFormat), s.Certificate, s.Role} {
+		toHash += field
+	}
+	return toHash
+}
+
+func Sign(pathToPrivateKey string, signatureData *SignatureData) (string, error) {
+	if signatureData == nil {
+		return "", errors.New("signatureData must be provided")
+	}
+
 	keyBytes, err := ioutil.ReadFile(pathToPrivateKey)
 	if err != nil {
-		return "", time.Time{}, err
+		return "", err
 	}
 	block, _ := pem.Decode(keyBytes)
 	if block == nil {
-		return "", time.Time{}, fmt.Errorf("unable to decode RSA private key from %s", keyBytes)
+		return "", fmt.Errorf("unable to decode RSA private key from %s", keyBytes)
 	}
 	rsaPrivateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
-		return "", time.Time{}, err
+		return "", err
 	}
 
-	signingTime = time.Now().UTC()
-	toSign, err := generateStringToSign(logger, bodyJson, signingTime.Format(TimeFormat))
+	signatureBytes, err := rsa.SignPSS(rand.Reader, rsaPrivateKey, crypto.SHA256, signatureData.hash(), nil)
 	if err != nil {
-		return "", time.Time{}, err
+		return "", err
 	}
-	hashed := generateHash(toSign)
-
-	sig, err := rsa.SignPSS(rand.Reader, rsaPrivateKey, crypto.SHA256, hashed, nil)
-	if err != nil {
-		return "", time.Time{}, err
-	}
-	signature = base64.URLEncoding.EncodeToString(sig)
-	logger.Debug(fmt.Sprintf("final signature: %s", signature))
-	return signature, signingTime, nil
+	return base64.URLEncoding.EncodeToString(signatureBytes), nil
 }
 
-// Note - we will need to pass the signing time as a header like the Date header
-func Verify(logger hclog.Logger, pathToClientCerts, signature, bodyJson, signingTime string) (*x509.Certificate, error) {
-	logger.Debug("verifying signature")
-
-	// Make sure we can retrieve and read in the client certificate.
-	rest, err := ioutil.ReadFile(pathToClientCerts)
-	if err != nil {
-		return nil, err
+// Verify ensures that a given signature was created by one of the private keys
+// matching one of the given client certificates. It is possible for a client
+// certificate string given by PCF to contain multiple certificates within its
+// body, hence the looping. The matching certificate is returned and should be
+// further checked to ensure it contains the app, space, and org ID, and CN;
+// otherwise it would be possible to match against an injected client certificate
+// to gain authentication.
+func Verify(signature string, signatureData *SignatureData) (*x509.Certificate, error) {
+	if signatureData == nil {
+		return nil, errors.New("signatureData must be provided")
 	}
-
-	// Reconstruct the string that should have been signed.
-	toSign, err := generateStringToSign(logger, bodyJson, signingTime)
-	if err != nil {
-		return nil, err
-	}
-	hashed := generateHash(toSign)
 
 	// Use the CA certificate to verify the signature we've received.
-	sig, err := base64.URLEncoding.DecodeString(signature)
+	signatureBytes, err := base64.URLEncoding.DecodeString(signature)
 	if err != nil {
 		return nil, err
 	}
 
-	var lastErr error
+	certBytes := []byte(signatureData.Certificate)
 	var block *pem.Block
+	var result error
 	for {
-		block, rest = pem.Decode(rest)
+		block, certBytes = pem.Decode(certBytes)
 		if block == nil {
 			break
 		}
 		clientCerts, err := x509.ParseCertificates(block.Bytes)
 		if err != nil {
-			lastErr = err
+			result = multierror.Append(result, err)
 			continue
 		}
 		for _, clientCert := range clientCerts {
 			publicKey, ok := clientCert.PublicKey.(*rsa.PublicKey)
 			if !ok {
-				lastErr = fmt.Errorf("not an rsa public key, it's a %t", clientCert.PublicKey)
+				result = multierror.Append(result, fmt.Errorf("not an rsa public key, it's a %t", clientCert.PublicKey))
 				continue
 			}
 
-			if err := rsa.VerifyPSS(publicKey, crypto.SHA256, hashed, sig, nil); err != nil {
-				lastErr = err
+			if err := rsa.VerifyPSS(publicKey, crypto.SHA256, signatureData.hash(), signatureBytes, nil); err != nil {
+				result = multierror.Append(result, err)
 				continue
 			}
 			// Success
 			return clientCert, nil
 		}
 	}
-	if lastErr == nil {
-		return nil, errors.New("no matching client certificate found")
+	if result == nil {
+		return nil, fmt.Errorf("no matching client certificate found for %s in %s", signature, signatureData.Certificate)
 	}
-	return nil, lastErr
+	return nil, result
 }
 
 func IsIssuer(pathToCACert string, clientCert *x509.Certificate) (bool, error) {
@@ -128,31 +134,4 @@ func IsIssuer(pathToCACert string, clientCert *x509.Certificate) (bool, error) {
 	}
 	// Success
 	return true, nil
-}
-
-func generateStringToSign(logger hclog.Logger, bodyJson, signingTime string) (string, error) {
-	logger.Debug(fmt.Sprintf("preparing body for signature: %s", bodyJson))
-	logger.Debug(fmt.Sprintf("using signing time: %s", signingTime))
-
-	bodyBytes, err := json.Marshal(bodyJson)
-	if err != nil {
-		return "", err
-	}
-
-	logger.Debug(fmt.Sprintf("escaped body json to: %s", bodyBytes))
-
-	hasher := sha256.New()
-	hasher.Write(bodyBytes)
-	bodySha := base64.URLEncoding.EncodeToString(hasher.Sum(nil))
-	logger.Debug(fmt.Sprintf("created body sha: %s", bodySha))
-
-	toSign := fmt.Sprintf("time=%s&body=%s", signingTime, bodySha)
-
-	logger.Debug(fmt.Sprintf("generated string to sign: %s", toSign))
-	return toSign, nil
-}
-
-func generateHash(s string) []byte {
-	hashed := sha256.Sum256([]byte(s))
-	return hashed[:]
 }
