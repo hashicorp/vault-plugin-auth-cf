@@ -29,7 +29,6 @@ var (
 	logger        = hclog.Default()
 )
 
-// TODO need to test the client IRL and make sure it can really execute the calls I think it can. What if it's buggy?
 func MockServer(loud bool) *httptest.Server {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
