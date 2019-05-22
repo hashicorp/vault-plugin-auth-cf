@@ -192,7 +192,7 @@ func (b *backend) attemptLogin(ctx context.Context, req *logical.Request, data *
 				MaxTTL:    role.MaxTTL,
 			},
 			Alias: &logical.Alias{
-				Name: pcfCert.InstanceID,
+				Name: pcfCert.AppID,
 			},
 			BoundCIDRs: role.BoundCIDRs,
 		},

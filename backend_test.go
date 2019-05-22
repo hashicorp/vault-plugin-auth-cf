@@ -499,7 +499,7 @@ func (e *Env) Login(t *testing.T) {
 	if resp.Auth.Metadata["ip_addresses"] != "" {
 		t.Fatalf("expected %s but received %s", "", resp.Auth.Metadata["ip_addresses"])
 	}
-	if resp.Auth.Alias.Name != api.FoundServiceGUID {
+	if resp.Auth.Alias.Name != api.FoundAppGUID {
 		t.Fatalf("expected %s but received %s", api.FoundServiceGUID, resp.Auth.Alias.Name)
 	}
 	if !resp.Auth.LeaseOptions.Renewable {
