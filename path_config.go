@@ -2,10 +2,12 @@ package pcf
 
 import (
 	"context"
-	"crypto/x509"
 	"errors"
 	"fmt"
+	"strings"
 
+	"github.com/cloudfoundry-community/go-cfclient"
+	"github.com/hashicorp/vault-plugin-auth-pcf/models"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -16,10 +18,10 @@ func (b *backend) pathConfig() *framework.Path {
 	return &framework.Path{
 		Pattern: "config",
 		Fields: map[string]*framework.FieldSchema{
-			"certificate": {
+			"certificates": {
 				Required:    true,
-				Type:        framework.TypeString,
-				Description: "The PEM-format CA certificate.",
+				Type:        framework.TypeStringSlice,
+				Description: "The PEM-format CA certificates.",
 			},
 			"pcf_api_addr": {
 				Required:     true,
@@ -46,7 +48,10 @@ func (b *backend) pathConfig() *framework.Path {
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.CreateOperation: &framework.PathOperation{
-				Callback: b.operationConfigCreate,
+				Callback: b.operationConfigCreateUpdate,
+			},
+			logical.UpdateOperation: &framework.PathOperation{
+				Callback: b.operationConfigCreateUpdate,
 			},
 			logical.ReadOperation: &framework.PathOperation{
 				Callback: b.operationConfigRead,
@@ -60,16 +65,71 @@ func (b *backend) pathConfig() *framework.Path {
 	}
 }
 
-func (b *backend) operationConfigCreate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	config, err := NewConfiguration(
-		data.Get("certificate").(string),
-		data.Get("pcf_api_addr").(string),
-		data.Get("pcf_username").(string),
-		data.Get("pcf_password").(string),
-	)
+func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	config, err := b.cachedConfig()
 	if err != nil {
 		return nil, err
 	}
+	if config == nil {
+		// They're creating a config.
+		certificates := data.Get("certificates").([]string)
+		if len(certificates) == 0 {
+			return nil, errors.New("'certificates' is required")
+		}
+		pcfApiAddr := data.Get("pcf_api_addr").(string)
+		if pcfApiAddr == "" {
+			return nil, errors.New("'pcf_api_addr' is required")
+		}
+		pcfUsername := data.Get("pcf_username").(string)
+		if pcfUsername == "" {
+			return nil, errors.New("'pcf_username' is required")
+		}
+		pcfPassword := data.Get("pcf_password").(string)
+		if pcfPassword == "" {
+			return nil, errors.New("'pcf_password' is required")
+		}
+		config, err = models.NewConfiguration(certificates, pcfApiAddr, pcfUsername, pcfPassword)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// They're updating a config. Only update the fields that have been sent in the call.
+		if raw, ok := data.GetOk("certificates"); ok {
+			if config.Certificates, ok = raw.([]string); !ok {
+				config.Certificates = append(config.Certificates, raw.(string))
+			}
+		}
+		if raw, ok := data.GetOk("pcf_api_addr"); ok {
+			config.PCFAPIAddr = raw.(string)
+		}
+		if raw, ok := data.GetOk("pcf_username"); ok {
+			config.PCFUsername = raw.(string)
+		}
+		if raw, ok := data.GetOk("pcf_password"); ok {
+			config.PCFPassword = raw.(string)
+		}
+	}
+
+	// To give early and explicit feedback, make sure the config works by executing a test call
+	// and checking that the API version is supported. If they don't have API v2 running, we would
+	// probably expect a timeout of some sort below because it's first called in the NewClient
+	// method.
+	client, err := cfclient.NewClient(&cfclient.Config{
+		ApiAddress: config.PCFAPIAddr,
+		Username:   config.PCFUsername,
+		Password:   config.PCFPassword,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("unable to establish an initial connection to the PCF API: %s", err)
+	}
+	info, err := client.GetInfo()
+	if err != nil {
+		return nil, err
+	}
+	if !strings.HasPrefix(info.APIVersion, "2.") {
+		return nil, fmt.Errorf("the PCF auth plugin only supports version 2.X.X of the PCF API, if this is unsuitable please open a ticket requesting support for your PCF version")
+	}
+
 	entry, err := logical.StorageEntryJSON(configStorageKey, config)
 	if err != nil {
 		return nil, err
@@ -82,7 +142,7 @@ func (b *backend) operationConfigCreate(ctx context.Context, req *logical.Reques
 }
 
 func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	config, err := b.cachedConfig(ctx, req.Storage)
+	config, err := b.cachedConfig()
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +151,7 @@ func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request,
 	}
 	return &logical.Response{
 		Data: map[string]interface{}{
-			"certificate":  config.Certificate,
+			"certificates": config.Certificates,
 			"pcf_api_addr": config.PCFAPIAddr,
 			"pcf_username": config.PCFUsername,
 		},
@@ -106,50 +166,23 @@ func (b *backend) operationConfigDelete(ctx context.Context, req *logical.Reques
 	return nil, nil
 }
 
-func NewConfiguration(certificate, pcfAPIAddr, pcfUsername, pcfPassword string) (*configuration, error) {
-	config := &configuration{
-		Certificate: certificate,
-		PCFAPIAddr:  pcfAPIAddr,
-		PCFUsername: pcfUsername,
-		PCFPassword: pcfPassword,
-	}
-	pool := x509.NewCertPool()
-	if ok := pool.AppendCertsFromPEM([]byte(config.Certificate)); !ok {
-		return nil, errors.New("couldn't append CA certificates")
-	}
-	config.verifyOpts = &x509.VerifyOptions{Roots: pool}
-	return config, nil
-}
-
-type configuration struct {
-	Certificate string `json:"certificate"`
-	PCFAPIAddr  string `json:"pcf_api_addr"`
-	PCFUsername string `json:"pcf_username"`
-	PCFPassword string `json:"pcf_password"`
-
-	// verifyOpts is intentionally lower-cased so it won't be stored in JSON.
-	// Instead, this struct is expected to be created from NewConfiguration
-	// so that it'll populate this field.
-	verifyOpts *x509.VerifyOptions
-}
-
 // cachedConfig may return nil without error if the user doesn't currently have a config.
 // The cache should always reflect the current stored config, so if the config
 // is nil, there's no need to do an additional check in storage.
-func (b *backend) cachedConfig(ctx context.Context, storage logical.Storage) (*configuration, error) {
+func (b *backend) cachedConfig() (*models.Configuration, error) {
 	configIfc, found := b.configCache.Get(configStorageKey)
 	if !found {
 		return nil, nil
 	}
-	config, ok := configIfc.(*configuration)
+	config, ok := configIfc.(*models.Configuration)
 	if !ok {
-		return nil, fmt.Errorf("couldn't read config: %+v is a %t", configIfc, configIfc)
+		return nil, fmt.Errorf("couldn't read config: %s is a %t", configIfc, configIfc)
 	}
 	return config, nil
 }
 
 // storedConfig may return nil without error if the user doesn't currently have a config.
-func storedConfig(ctx context.Context, storage logical.Storage) (*configuration, error) {
+func storedConfig(ctx context.Context, storage logical.Storage) (*models.Configuration, error) {
 	entry, err := storage.Get(ctx, configStorageKey)
 	if err != nil {
 		return nil, err
@@ -161,8 +194,13 @@ func storedConfig(ctx context.Context, storage logical.Storage) (*configuration,
 	if err := entry.DecodeJSON(&configMap); err != nil {
 		return nil, err
 	}
-	config, err := NewConfiguration(
-		configMap["certificate"].(string),
+	var certificates []string
+	certificatesIfc := configMap["certificates"].([]interface{})
+	for _, certificateIfc := range certificatesIfc {
+		certificates = append(certificates, certificateIfc.(string))
+	}
+	config, err := models.NewConfiguration(
+		certificates,
 		configMap["pcf_api_addr"].(string),
 		configMap["pcf_username"].(string),
 		configMap["pcf_password"].(string),

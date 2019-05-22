@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/hashicorp/go-sockaddr"
+	"github.com/hashicorp/vault-plugin-auth-pcf/models"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/parseutil"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -37,9 +37,9 @@ func (b *backend) operationRolesList(ctx context.Context, req *logical.Request, 
 
 func (b *backend) pathRoles() *framework.Path {
 	return &framework.Path{
-		Pattern: "roles/" + framework.GenericNameRegex("name"),
+		Pattern: "roles/" + framework.GenericNameRegex("role"),
 		Fields: map[string]*framework.FieldSchema{
-			"name": {
+			"role": {
 				Type:        framework.TypeLowerCaseString,
 				Required:    true,
 				Description: "The name of the role.",
@@ -82,6 +82,14 @@ IP addresses which can perform the login operation.`,
 				DisplayValue: "default",
 				Description:  "Comma separated list of policies on the role.",
 			},
+			"disable_ip_matching": {
+				Type:         framework.TypeBool,
+				Default:      false,
+				DisplayName:  "Disable IP Address Matching",
+				DisplayValue: "false",
+				Description: `If set to true, disables the default behavior that logging in must be performed from 
+an acceptable IP address described by the certificate presented.`,
+			},
 			"ttl": {
 				Type: framework.TypeDurationSecond,
 				Description: `Duration in seconds after which the issued token should expire. Defaults
@@ -122,7 +130,7 @@ TTL will be set to the value of this parameter.`,
 }
 
 func (b *backend) operationRolesExistenceCheck(ctx context.Context, req *logical.Request, data *framework.FieldData) (bool, error) {
-	entry, err := req.Storage.Get(ctx, roleStoragePrefix+data.Get("name").(string))
+	entry, err := req.Storage.Get(ctx, roleStoragePrefix+data.Get("role").(string))
 	if err != nil {
 		return false, err
 	}
@@ -130,18 +138,16 @@ func (b *backend) operationRolesExistenceCheck(ctx context.Context, req *logical
 }
 
 func (b *backend) operationRolesCreateUpdate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	roleName := data.Get("name").(string)
+	roleName := data.Get("role").(string)
 
-	role := &roleEntry{}
+	role := &models.RoleEntry{}
 	if req.Operation == logical.UpdateOperation {
-		entry, err := req.Storage.Get(ctx, roleStoragePrefix+roleName)
+		storedRole, err := getRole(ctx, req.Storage, roleName)
 		if err != nil {
 			return nil, err
 		}
-		if entry != nil {
-			if err := entry.DecodeJSON(role); err != nil {
-				return nil, err
-			}
+		if storedRole != nil {
+			role = storedRole
 		}
 	}
 	if raw, ok := data.GetOk("bound_application_ids"); ok {
@@ -165,6 +171,9 @@ func (b *backend) operationRolesCreateUpdate(ctx context.Context, req *logical.R
 	}
 	if raw, ok := data.GetOk("policies"); ok {
 		role.Policies = raw.([]string)
+	}
+	if raw, ok := data.GetOk("disable_ip_matching"); ok {
+		role.DisableIPMatching = raw.(bool)
 	}
 	if raw, ok := data.GetOk("ttl"); ok {
 		role.TTL = time.Duration(raw.(int)) * time.Second
@@ -197,18 +206,13 @@ func (b *backend) operationRolesCreateUpdate(ctx context.Context, req *logical.R
 }
 
 func (b *backend) operationRolesRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	roleName := data.Get("name").(string)
-
-	role := &roleEntry{}
-	entry, err := req.Storage.Get(ctx, roleStoragePrefix+roleName)
+	roleName := data.Get("role").(string)
+	role, err := getRole(ctx, req.Storage, roleName)
 	if err != nil {
 		return nil, err
 	}
-	if entry == nil {
+	if role == nil {
 		return nil, nil
-	}
-	if err := entry.DecodeJSON(role); err != nil {
-		return nil, err
 	}
 	cidrs := make([]string, len(role.BoundCIDRs))
 	for i, cidr := range role.BoundCIDRs {
@@ -222,6 +226,7 @@ func (b *backend) operationRolesRead(ctx context.Context, req *logical.Request, 
 			"bound_instance_ids":     role.BoundInstanceIDs,
 			"bound_cidrs":            cidrs,
 			"policies":               role.Policies,
+			"disable_ip_matching":    role.DisableIPMatching,
 			"ttl":                    role.TTL / time.Second,
 			"max_ttl":                role.MaxTTL / time.Second,
 			"period":                 role.Period / time.Second,
@@ -230,23 +235,26 @@ func (b *backend) operationRolesRead(ctx context.Context, req *logical.Request, 
 }
 
 func (b *backend) operationRolesDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	roleName := data.Get("name").(string)
+	roleName := data.Get("role").(string)
 	if err := req.Storage.Delete(ctx, roleStoragePrefix+roleName); err != nil {
 		return nil, err
 	}
 	return nil, nil
 }
 
-type roleEntry struct {
-	BoundAppIDs      []string                      `json:"bound_application_ids"`
-	BoundSpaceIDs    []string                      `json:"bound_space_ids"`
-	BoundOrgIDs      []string                      `json:"bound_organization_ids"`
-	BoundInstanceIDs []string                      `json:"bound_instance_ids"`
-	BoundCIDRs       []*sockaddr.SockAddrMarshaler `json:"bound_cidrs"`
-	Policies         []string                      `json:"policies"`
-	TTL              time.Duration                 `json:"ttl"`
-	MaxTTL           time.Duration                 `json:"max_ttl"`
-	Period           time.Duration                 `json:"period"`
+func getRole(ctx context.Context, storage logical.Storage, roleName string) (*models.RoleEntry, error) {
+	r := &models.RoleEntry{}
+	entry, err := storage.Get(ctx, roleStoragePrefix+roleName)
+	if err != nil {
+		return nil, err
+	}
+	if entry == nil {
+		return nil, nil
+	}
+	if err := entry.DecodeJSON(r); err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 const pathListRolesHelpSyn = "List the existing roles in this backend."

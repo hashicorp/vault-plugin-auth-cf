@@ -1,5 +1,8 @@
 # vault-plugin-auth-pcf
 
+This plugin leverages PCF's [App and Container Identity Assurance](https://content.pivotal.io/blog/new-in-pcf-2-1-app-container-identity-assurance-via-automatic-cert-rotation)
+for authenticating to Vault. 
+
 ## Getting Started
 
 - `$ git clone git@github.com:hashicorp/vault-plugin-auth-pcf.git`
@@ -15,26 +18,48 @@ to make your life easier. Running the command will place them in your `$GOPATH/b
 
 Please note that this example uses `generate-signature`, a tool installed through `$ make tools`.
 
+First, enable the PCF auth engine.
 ```
 $ vault auth enable vault-plugin-auth-pcf
+```
 
+Next, configure the plugin. In the `config` call below, the `certificates` configured is intended to be the CA 
+certificate that has been configured as the `diego.executor.instance_identity_ca_cert` in your environment. For 
+instructions on configuring this, see PCF's 
+[Enabling Instance Identity](https://docs.cloudfoundry.org/adminguide/instance-identity.html).
+
+In the CF Dev environment the default API address is `https://api.dev.cfdev.sh`. The default username and password
+are `admin`, `admin`. In a production environment, these attributes will vary.
+```
 $ vault write auth/vault-plugin-auth-pcf/config \
-    certificate=@$GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/ca.crt \
+    certificates=@$GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/ca.crt \
     pcf_api_addr=http://127.0.0.1:33671 \
     pcf_username=username \
     pcf_password=password
-    
+```
+
+Then, add a role that will be used to grant specific Vault policies to those logging in with it. When a constraint like
+`bound_application_ids` is added, then the application ID on the cert used for logging in _must_ be one of the role's
+application IDs. However, if `bound_application_ids` is omitted, then _any_ application ID will match. We recommend
+configuring as many bound parameters as possible.
+
+Also, by default, the IP address on the certificate presented at login must match that of the caller. However, if
+your callers tend to be proxied, this may not work for you. If that's the case, set `disable_ip_matching` to true.
+```
 $ vault write auth/vault-plugin-auth-pcf/roles/test-role \
     bound_application_ids=2d3e834a-3a25-4591-974c-fa5626d5d0a1 \
     bound_space_ids=3d2eba6b-ef19-44d5-91dd-1975b0db5cc9 \
     bound_organization_ids=34a878d0-c2f9-4521-ba73-a9f664e82c7bf \
     bound_instance_ids=1bf2e7f6-2d1d-41ec-501c-c70 \
     policies=foo-policies \
-    disable_ip_matching=true \
     ttl=86400s \
     max_ttl=86400s \
     period=86400s
-    
+```
+
+Logging in is intended to be performed using your `CF_INSTANCE_CERT` and `CF_INSTANCE_KEY`. This is an example of how
+it can be done.
+```
 $ export CF_INSTANCE_CERT=$GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/instance.crt
 $ export CF_INSTANCE_KEY=$GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/instance.key
 $ export SIGNING_TIME=$(date -u)
@@ -46,7 +71,52 @@ $ vault write auth/vault-plugin-auth-pcf/login \
     signature=$(generate-signature)
 ```
 
+### Updating the CA Certificate
+
+In PCF, most CA certificates expire after 4 years. However, it's possible to configure your own CA certificate for the
+instance identity service, and its expiration date could vary. Either way, sometimes CA certificates expire and it may
+be necessary to have multiple configured so the beginning date of once commences when another expires.
+
+To configure multiple certificates, simply update the config to include the current one and future one.
+```
+$ CURRENT=$(cat /path/to/current-ca.crt)
+$ FUTURE=$(cat /path/to/future-ca.crt)
+$ vault write auth/vault-plugin-auth-pcf/config certificates="$CURRENT,$FUTURE"
+```
+
+All other configured values will remain untouched; however, the previous value for `certificates` will be overwritten
+with the new one you've provided.
+
+Providing a future CA certificate before the current one expires can protect you from having a downtime while the service
+is switching over from the old to the new. If a client certificate was issued by _any_ CA certificate you've configured,
+login will succeed.
+
 ## Troubleshooting
+
+### Login Failures
+
+You may attempt a login and receive a message like:
+```
+Error writing data to auth/vault-plugin-auth-pcf/login: Error making API request.
+
+URL: PUT http://localhost:8200/v1/auth/vault-plugin-auth-pcf/login
+Code: 400. Errors:
+
+* authentication failed, failure ID 3b303d25-2869-21e6-09b8-3f1c4138ba95
+
+```
+
+This message is intentionally vague so an attacker can't progressively work their way through changing error 
+responses. The causes for authentication failures are logged at the "error" level in Vault. For specific 
+information on why authentication is failing, please see the members of your team responsible for running 
+Vault and ask them to search Vault's logs for the given failure ID. This will yield a matching, debuggable 
+message in the logs, like:
+```
+[ERROR] authentication failed, failure ID 3b303d25-2869-21e6-09b8-3f1c4138ba95: 
+    request is too old; signed at 2019-05-22 22:01:30 +0000 UTC 
+    but received request at 2019-05-22 22:07:05.053579435 +0000 UTC; 
+    raw signing time is Wed May 22 22:01:30 UTC 2019
+```
 
 ### verify-certs
 
@@ -148,7 +218,7 @@ export MOCK_PCF_SERVER_ADDR='something' # ex. http://127.0.0.1:32937
 vault auth enable vault-plugin-auth-pcf
 
 vault write auth/vault-plugin-auth-pcf/config \
-    certificate=@$GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/ca.crt \
+    certificates=@$GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/ca.crt \
     pcf_api_addr=$MOCK_PCF_SERVER_ADDR \
     pcf_username=username \
     pcf_password=password
@@ -173,4 +243,10 @@ vault write auth/vault-plugin-auth-pcf/login \
     certificate=@$CF_INSTANCE_CERT \
     signing-time="$SIGNING_TIME" \
     signature=$(generate-signature)
+    
+vault token renew <token>
+
+CURRENT=$(cat $GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/ca.crt)
+FUTURE=$(cat $GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/ca.crt)
+vault write auth/vault-plugin-auth-pcf/config certificates="$CURRENT,$FUTURE"
 ```
