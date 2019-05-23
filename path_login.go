@@ -107,15 +107,6 @@ func (b *backend) attemptLogin(ctx context.Context, req *logical.Request, data *
 		return nil, err
 	}
 
-	// Ensure the signature isn't in our cache of ones we've already seen.
-	// This prevents replay attacks. Since items in the signature cache expire every
-	// 5 minutes, this covers us against replay attacks for the first 5 minutes
-	// of a signature having been used.
-	if _, found := b.signatureCache.Get(signature); found {
-		return nil, errors.New("signature has already been used")
-	}
-	b.signatureCache.SetDefault(signature, true)
-
 	// Ensure the signingTime it was signed is no more than 5 minutes in the past
 	// or 30 seconds in the future. This is another guard against replay attacks
 	// that takes over after 5 minutes.

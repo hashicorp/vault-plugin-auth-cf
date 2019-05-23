@@ -10,6 +10,5 @@ require (
 	github.com/hashicorp/go-uuid v1.0.1
 	github.com/hashicorp/vault/api v1.0.2
 	github.com/hashicorp/vault/sdk v0.1.11
-	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pkg/errors v0.8.1
 )

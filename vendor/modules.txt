@@ -88,8 +88,6 @@ github.com/mitchellh/go-testing-interface
 github.com/mitchellh/mapstructure
 # github.com/oklog/run v1.0.0
 github.com/oklog/run
-# github.com/patrickmn/go-cache v2.1.0+incompatible
-github.com/patrickmn/go-cache
 # github.com/pierrec/lz4 v2.0.5+incompatible
 github.com/pierrec/lz4
 github.com/pierrec/lz4/internal/xxh32
