@@ -150,7 +150,7 @@ func (e *Env) ReadConfig(t *testing.T) {
 		t.Fatalf("expected %s but received %s", e.TestConf.PCFUsername, resp.Data["pcf_username"])
 	}
 	if resp.Data["pcf_password"] != nil {
-		t.Fatalf("expected %s but received %s", "", resp.Data["pcf_password"])
+		t.Fatalf("expected %s but received %s", "nil", resp.Data["pcf_password"])
 	}
 }
 
