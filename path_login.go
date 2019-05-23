@@ -140,7 +140,11 @@ func (b *backend) attemptLogin(ctx context.Context, req *logical.Request, data *
 	if config == nil {
 		return nil, errors.New("no CA is configured for verifying client certificates")
 	}
-	if _, err := matchingCert.Verify(config.VerifyOpts()); err != nil {
+	verifyOpts, err := config.VerifyOpts()
+	if err != nil {
+		return nil, err
+	}
+	if _, err := matchingCert.Verify(verifyOpts); err != nil {
 		return nil, err
 	}
 

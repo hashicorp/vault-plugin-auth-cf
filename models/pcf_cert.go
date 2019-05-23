@@ -8,6 +8,8 @@ import (
 	"strings"
 )
 
+// NewPCFCertificateFromx509 converts a x509 certificate to a valid, well-formed PCF certificate,
+// erroring if this isn't possible.
 func NewPCFCertificateFromx509(certificate *x509.Certificate) (*PCFCertificate, error) {
 	if len(certificate.IPAddresses) != 1 {
 		return nil, fmt.Errorf("valid PCF certs have one IP address, but this has %s", certificate.IPAddresses)
@@ -53,6 +55,8 @@ func NewPCFCertificateFromx509(certificate *x509.Certificate) (*PCFCertificate, 
 	return pcfCert, nil
 }
 
+// NewPCFCertificateFromx509 converts the given fields to a valid, well-formed PCF certificate,
+// erroring if this isn't possible.
 func NewPCFCertificate(instanceID, orgID, spaceID, appID, ipAddress string) (*PCFCertificate, error) {
 	pcfCert := &PCFCertificate{
 		InstanceID: instanceID,
@@ -67,6 +71,8 @@ func NewPCFCertificate(instanceID, orgID, spaceID, appID, ipAddress string) (*PC
 	return pcfCert, nil
 }
 
+// PCFCertificate isn't intended to be instantiated directly; but rather through one of the New
+// methods, which contain logic validating that the expected fields exist.
 type PCFCertificate struct {
 	InstanceID, OrgID, SpaceID, AppID string
 	IPAddress                         net.IP

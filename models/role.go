@@ -6,6 +6,7 @@ import (
 	"github.com/hashicorp/go-sockaddr"
 )
 
+// RoleEntry is a role as it's reflected in Vault's storage system.
 type RoleEntry struct {
 	BoundAppIDs       []string                      `json:"bound_application_ids"`
 	BoundSpaceIDs     []string                      `json:"bound_space_ids"`
