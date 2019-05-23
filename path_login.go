@@ -3,6 +3,7 @@ package pcf
 import (
 	"context"
 	"fmt"
+	"github.com/hashicorp/vault/sdk/helper/strutil"
 	"net"
 	"strings"
 	"time"
@@ -305,12 +306,7 @@ func meetsBoundConstraints(certValue string, constraints []string) bool {
 		return true
 	}
 	// Check whether we have a match.
-	for _, p := range constraints {
-		if p == certValue {
-			return true
-		}
-	}
-	return false
+	return strutil.StrListContains(constraints, certValue)
 }
 
 func matchesIPAddress(remoteAddr string, certIP net.IP) bool {
