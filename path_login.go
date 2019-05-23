@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/cloudfoundry-community/go-cfclient"
-	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault-plugin-auth-pcf/models"
 	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
 	"github.com/hashicorp/vault-plugin-auth-pcf/util"
@@ -65,58 +64,42 @@ func (b *backend) pathLogin() *framework.Path {
 // private key. If this holds true, there are additional checks verifying everything looks
 // good before authentication is given.
 func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	// Here, we intentionally swallow and log any detailed errors from failed authentication.
-	// That's so attackers can't as easily progressively resolve issues.
-	// If they're supposed to be using Vault, they can reach out to system administrators
-	// for logs of the issue to debug it.
-	resp, err := b.attemptLogin(ctx, req, data)
-	if err != nil {
-		// Provide a failure ID so it's easy to marry a particular API call with its server-side logs.
-		u, _ := uuid.GenerateUUID()
-		b.logger.Error(fmt.Sprintf("authentication failed, failure ID %s: %s", u, err))
-		return logical.ErrorResponse(fmt.Sprintf("authentication failed, failure ID %s", u)), nil
-	}
-	return resp, nil
-}
-
-func (b *backend) attemptLogin(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	// Grab the time immediately for checking against the request's signingTime.
 	timeReceived := time.Now().UTC()
 
 	roleName := data.Get("role").(string)
 	if roleName == "" {
-		return nil, errors.New("'role-name' is required")
+		return logical.ErrorResponse("'role-name' is required"), nil
 	}
 
 	signature := data.Get("signature").(string)
 	if signature == "" {
-		return nil, errors.New("'signature' is required")
+		return logical.ErrorResponse("'signature' is required"), nil
 	}
 
 	clientCertificate := data.Get("certificate").(string)
 	if clientCertificate == "" {
-		return nil, errors.New("'certificate' is required")
+		return logical.ErrorResponse("'certificate' is required"), nil
 	}
 
 	signingTimeRaw := data.Get("signing_time").(string)
 	if signingTimeRaw == "" {
-		return nil, errors.New("'signing_time' is required")
+		return logical.ErrorResponse("'signing_time' is required"), nil
 	}
 	signingTime, err := parseTime(signingTimeRaw)
 	if err != nil {
-		return nil, err
+		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	// Ensure the signingTime it was signed is no more than 5 minutes in the past
-	// or 30 seconds in the future. This is another guard against replay attacks
-	// that takes over after 5 minutes.
+	// Ensure the time it was signed is no more than 5 minutes in the past
+	// or 30 seconds in the future. This is a guard against some replay attacks.
 	fiveMinutesAgo := timeReceived.Add(time.Minute * time.Duration(-5))
 	thirtySecondsFromNow := timeReceived.Add(time.Second * time.Duration(30))
 	if signingTime.Before(fiveMinutesAgo) {
-		return nil, fmt.Errorf("request is too old; signed at %s but received request at %s; raw signing time is %s", signingTime, timeReceived, signingTimeRaw)
+		return logical.ErrorResponse(fmt.Sprintf("request is too old; signed at %s but received request at %s; raw signing time is %s", signingTime, timeReceived, signingTimeRaw)), nil
 	}
 	if signingTime.After(thirtySecondsFromNow) {
-		return nil, fmt.Errorf("request is too far in the future; signed at %s but received request at %s; raw signing time is %s", signingTime, timeReceived, signingTimeRaw)
+		return logical.ErrorResponse(fmt.Sprintf("request is too far in the future; signed at %s but received request at %s; raw signing time is %s", signingTime, timeReceived, signingTimeRaw)), nil
 	}
 
 	// Ensure the private key used to create the signature matches our client
@@ -128,7 +111,7 @@ func (b *backend) attemptLogin(ctx context.Context, req *logical.Request, data *
 		Certificate: clientCertificate,
 	})
 	if err != nil {
-		return nil, err
+		return logical.ErrorResponse(err.Error()), nil
 	}
 
 	// Ensure the matching certificate was actually issued by the CA configured.
@@ -145,7 +128,7 @@ func (b *backend) attemptLogin(ctx context.Context, req *logical.Request, data *
 		return nil, err
 	}
 	if _, err := matchingCert.Verify(verifyOpts); err != nil {
-		return nil, err
+		return logical.ErrorResponse(err.Error()), nil
 	}
 
 	// Read PCF's identity fields from the certificate.
@@ -164,7 +147,7 @@ func (b *backend) attemptLogin(ctx context.Context, req *logical.Request, data *
 	}
 
 	if err := b.validate(config, role, pcfCert, req.Connection.RemoteAddr); err != nil {
-		return nil, err
+		return logical.ErrorResponse(err.Error()), nil
 	}
 
 	// Everything checks out.
@@ -224,7 +207,7 @@ func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data
 		req.Auth.Metadata["ip_address"],
 	)
 	if err := b.validate(config, role, pcfCert, req.Connection.RemoteAddr); err != nil {
-		return nil, err
+		return logical.ErrorResponse(err.Error()), nil
 	}
 
 	resp := &logical.Response{Auth: req.Auth}

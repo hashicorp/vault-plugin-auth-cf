@@ -93,31 +93,6 @@ login will succeed.
 
 ## Troubleshooting
 
-### Login Failures
-
-You may attempt a login and receive a message like:
-```
-Error writing data to auth/vault-plugin-auth-pcf/login: Error making API request.
-
-URL: PUT http://localhost:8200/v1/auth/vault-plugin-auth-pcf/login
-Code: 400. Errors:
-
-* authentication failed, failure ID 3b303d25-2869-21e6-09b8-3f1c4138ba95
-
-```
-
-This message is intentionally vague so an attacker can't progressively work their way through changing error 
-responses. The causes for authentication failures are logged at the "error" level in Vault. For specific 
-information on why authentication is failing, please see the members of your team responsible for running 
-Vault and ask them to search Vault's logs for the given failure ID. This will yield a matching, debuggable 
-message in the logs, like:
-```
-[ERROR] authentication failed, failure ID 3b303d25-2869-21e6-09b8-3f1c4138ba95: 
-    request is too old; signed at 2019-05-22 22:01:30 +0000 UTC 
-    but received request at 2019-05-22 22:07:05.053579435 +0000 UTC; 
-    raw signing time is Wed May 22 22:01:30 UTC 2019
-```
-
 ### verify-certs
 
 This tool, installed by `make tools`, is for verifying that your CA certificate, client certificate, and client 
