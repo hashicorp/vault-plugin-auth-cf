@@ -463,7 +463,7 @@ func (e *Env) Login(t *testing.T) {
 		Data: map[string]interface{}{
 			"role":         "test-role",
 			"signature":    signature,
-			"signing-time": signingTime.UTC().Format(signatures.TimeFormat),
+			"signing_time": signingTime.UTC().Format(signatures.TimeFormat),
 			"certificate":  string(certBytes),
 		},
 		Connection: &logical.Connection{

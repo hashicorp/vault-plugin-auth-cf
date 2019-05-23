@@ -19,7 +19,7 @@ To use it for directly logging into Vault:
 	vault write auth/vault-plugin-auth-pcf/login \
 		role=$ROLE \
 		certificate=$CF_INSTANCE_CERT \
-		signing-time=SIGNING_TIME \
+		signing_time=SIGNING_TIME \
 		signature=$(generate-signature)
 */
 

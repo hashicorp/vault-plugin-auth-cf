@@ -35,7 +35,7 @@ func (b *backend) pathLogin() *framework.Path {
 				DisplayName: "Client Certificate",
 				Description: "The full client certificate available at the CF_INSTANCE_CERT path on the PCF instance.",
 			},
-			"signing-time": {
+			"signing_time": {
 				Required:     true,
 				Type:         framework.TypeString,
 				DisplayName:  "Signing Time",
@@ -98,9 +98,9 @@ func (b *backend) attemptLogin(ctx context.Context, req *logical.Request, data *
 		return nil, errors.New("'certificate' is required")
 	}
 
-	signingTimeRaw := data.Get("signing-time").(string)
+	signingTimeRaw := data.Get("signing_time").(string)
 	if signingTimeRaw == "" {
-		return nil, errors.New("'signing-time' is required")
+		return nil, errors.New("'signing_time' is required")
 	}
 	signingTime, err := parseTime(signingTimeRaw)
 	if err != nil {

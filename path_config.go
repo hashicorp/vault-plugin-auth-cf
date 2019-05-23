@@ -137,7 +137,7 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 		return nil, err
 	}
 	if !strings.HasPrefix(info.APIVersion, "2.") {
-		return nil, fmt.Errorf("the PCF auth plugin only supports version 2.X.X of the PCF API, if this is unsuitable please open a ticket requesting support for your PCF version")
+		return nil, fmt.Errorf("the PCF auth plugin only supports version 2.X.X of the PCF API")
 	}
 
 	entry, err := logical.StorageEntryJSON(configStorageKey, config)
