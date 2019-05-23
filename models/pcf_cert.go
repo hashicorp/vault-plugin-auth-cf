@@ -17,19 +17,35 @@ func NewPCFCertificateFromx509(certificate *x509.Certificate) (*PCFCertificate, 
 		InstanceID: certificate.Subject.CommonName,
 		IPAddress:  certificate.IPAddresses[0],
 	}
+
+	spaces := 0
+	orgs := 0
+	apps := 0
 	for _, ou := range certificate.Subject.OrganizationalUnit {
 		if strings.HasPrefix(ou, "space:") {
 			pcfCert.SpaceID = strings.Split(ou, "space:")[1]
+			spaces++
 			continue
 		}
 		if strings.HasPrefix(ou, "organization:") {
 			pcfCert.OrgID = strings.Split(ou, "organization:")[1]
+			orgs++
 			continue
 		}
 		if strings.HasPrefix(ou, "app:") {
 			pcfCert.AppID = strings.Split(ou, "app:")[1]
+			apps++
 			continue
 		}
+	}
+	if spaces > 1 {
+		return nil, fmt.Errorf("expected 1 space but received %d", spaces)
+	}
+	if orgs > 1 {
+		return nil, fmt.Errorf("expected 1 org but received %d", orgs)
+	}
+	if apps > 1 {
+		return nil, fmt.Errorf("expected 1 app but received %d", apps)
 	}
 	if err := pcfCert.validate(); err != nil {
 		return nil, err
