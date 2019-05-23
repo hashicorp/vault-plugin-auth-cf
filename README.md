@@ -7,6 +7,7 @@ for authenticating to Vault.
 
 - `$ git clone git@github.com:hashicorp/vault-plugin-auth-pcf.git`
 - `$ cd vault-plugin-auth-pcf`
+- `$ PCF_HOME=$(pwd)`
 - `$ make test`
 - `$ make tools`
 
@@ -32,7 +33,7 @@ In the CF Dev environment the default API address is `https://api.dev.cfdev.sh`.
 are `admin`, `admin`. In a production environment, these attributes will vary.
 ```
 $ vault write auth/vault-plugin-auth-pcf/config \
-    certificates=@$GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/ca.crt \
+    certificates=@$PCF_HOME/testdata/fake-certificates/ca.crt \
     pcf_api_addr=http://127.0.0.1:33671 \
     pcf_username=username \
     pcf_password=password
@@ -60,8 +61,8 @@ $ vault write auth/vault-plugin-auth-pcf/roles/test-role \
 Logging in is intended to be performed using your `CF_INSTANCE_CERT` and `CF_INSTANCE_KEY`. This is an example of how
 it can be done.
 ```
-$ export CF_INSTANCE_CERT=$GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/instance.crt
-$ export CF_INSTANCE_KEY=$GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/instance.key
+$ export CF_INSTANCE_CERT=$PCF_HOME/testdata/fake-certificates/instance.crt
+$ export CF_INSTANCE_KEY=$PCF_HOME/testdata/fake-certificates/instance.key
 $ export SIGNING_TIME=$(date -u)
 $ export ROLE='test-role'
 $ vault write auth/vault-plugin-auth-pcf/login \
@@ -180,7 +181,7 @@ make dev
 make tools
 
 # In one shell window, run Vault with the plugin available in the catalog.
-vault server -dev -dev-root-token-id=root -dev-plugin-dir=$GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/bin -log-level=debug
+vault server -dev -dev-root-token-id=root -dev-plugin-dir=$PCF_HOME/bin -log-level=debug
 
 # In another shell window, run a mock of the PCF API so the plugin's client calls won't fail.
 mock-pcf-server
@@ -193,7 +194,7 @@ export MOCK_PCF_SERVER_ADDR='something' # ex. http://127.0.0.1:32937
 vault auth enable vault-plugin-auth-pcf
 
 vault write auth/vault-plugin-auth-pcf/config \
-    certificates=@$GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/ca.crt \
+    certificates=@$PCF_HOME/testdata/fake-certificates/ca.crt \
     pcf_api_addr=$MOCK_PCF_SERVER_ADDR \
     pcf_username=username \
     pcf_password=password
@@ -209,8 +210,8 @@ vault write auth/vault-plugin-auth-pcf/roles/test-role \
     max_ttl=86400s \
     period=86400s
     
-export CF_INSTANCE_CERT=$GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/instance.crt
-export CF_INSTANCE_KEY=$GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/instance.key
+export CF_INSTANCE_CERT=$PCF_HOME/testdata/fake-certificates/instance.crt
+export CF_INSTANCE_KEY=$PCF_HOME/testdata/fake-certificates/instance.key
 export SIGNING_TIME=$(date -u)
 export ROLE='test-role'
 vault write auth/vault-plugin-auth-pcf/login \
@@ -221,7 +222,7 @@ vault write auth/vault-plugin-auth-pcf/login \
     
 vault token renew <token>
 
-CURRENT=$(cat $GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/ca.crt)
-FUTURE=$(cat $GOPATH/src/github.com/hashicorp/vault-plugin-auth-pcf/testdata/fake-certificates/ca.crt)
+CURRENT=$(cat $PCF_HOME/testdata/fake-certificates/ca.crt)
+FUTURE=$(cat $PCF_HOME/testdata/fake-certificates/ca.crt)
 vault write auth/vault-plugin-auth-pcf/config certificates="$CURRENT,$FUTURE"
 ```
