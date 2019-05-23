@@ -2,7 +2,6 @@ package pcf
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -74,23 +73,23 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 		// They're creating a config.
 		certificates := data.Get("certificates").([]string)
 		if len(certificates) == 0 {
-			return nil, errors.New("'certificates' is required")
+			return logical.ErrorResponse("'certificates' is required"), nil
 		}
 		pcfApiAddr := data.Get("pcf_api_addr").(string)
 		if pcfApiAddr == "" {
-			return nil, errors.New("'pcf_api_addr' is required")
+			return logical.ErrorResponse("'pcf_api_addr' is required"), nil
 		}
 		pcfUsername := data.Get("pcf_username").(string)
 		if pcfUsername == "" {
-			return nil, errors.New("'pcf_username' is required")
+			return logical.ErrorResponse("'pcf_username' is required"), nil
 		}
 		pcfPassword := data.Get("pcf_password").(string)
 		if pcfPassword == "" {
-			return nil, errors.New("'pcf_password' is required")
+			return logical.ErrorResponse("'pcf_password' is required"), nil
 		}
 		config, err = models.NewConfiguration(certificates, pcfApiAddr, pcfUsername, pcfPassword)
 		if err != nil {
-			return nil, err
+			return logical.ErrorResponse(err.Error()), nil
 		}
 	} else {
 		// They're updating a config. Only update the fields that have been sent in the call.

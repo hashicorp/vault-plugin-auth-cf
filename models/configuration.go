@@ -32,13 +32,13 @@ type Configuration struct {
 	Certificates []string `json:"certificates"`
 
 	// PCFAPIAddr is the address of PCF's API, ex: "https://api.dev.cfdev.sh" or "http://127.0.0.1:33671"
-	PCFAPIAddr   string   `json:"pcf_api_addr"`
+	PCFAPIAddr string `json:"pcf_api_addr"`
 
 	// The username for the PCF API.
-	PCFUsername  string   `json:"pcf_username"`
+	PCFUsername string `json:"pcf_username"`
 
 	// The password for the PCF API.
-	PCFPassword  string   `json:"pcf_password"`
+	PCFPassword string `json:"pcf_password"`
 
 	// verifyOpts is intentionally lower-cased so it won't be stored in JSON.
 	// Instead, this struct is expected to be created from NewConfiguration

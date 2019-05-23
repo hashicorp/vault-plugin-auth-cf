@@ -2,7 +2,6 @@ package pcf
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -186,7 +185,7 @@ func (b *backend) operationRolesCreateUpdate(ctx context.Context, req *logical.R
 	}
 
 	if role.MaxTTL > 0 && role.TTL > role.MaxTTL {
-		return nil, errors.New("ttl exceeds max_ttl")
+		return logical.ErrorResponse("ttl exceeds max_ttl"), nil
 	}
 
 	entry, err := logical.StorageEntryJSON(roleStoragePrefix+roleName, role)
