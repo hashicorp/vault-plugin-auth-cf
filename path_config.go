@@ -66,7 +66,7 @@ func (b *backend) pathConfig() *framework.Path {
 }
 
 func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	config, err := b.cachedConfig()
+	config, err := config(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -95,8 +95,19 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 	} else {
 		// They're updating a config. Only update the fields that have been sent in the call.
 		if raw, ok := data.GetOk("certificates"); ok {
-			if config.Certificates, ok = raw.([]string); !ok {
-				config.Certificates = append(config.Certificates, raw.(string))
+			switch v := raw.(type) {
+			case []interface{}:
+				certificates := make([]string, len(v))
+				for _, certificateIfc := range v {
+					certificate, ok := certificateIfc.(string)
+					if !ok {
+						continue
+					}
+					certificates = append(certificates, certificate)
+				}
+				config.Certificates = certificates
+			case string:
+				config.Certificates = []string{v}
 			}
 		}
 		if raw, ok := data.GetOk("pcf_api_addr"); ok {
@@ -137,12 +148,11 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 	if err := req.Storage.Put(ctx, entry); err != nil {
 		return nil, err
 	}
-	b.configCache.SetDefault(configStorageKey, config)
 	return nil, nil
 }
 
 func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	config, err := b.cachedConfig()
+	config, err := config(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -162,27 +172,11 @@ func (b *backend) operationConfigDelete(ctx context.Context, req *logical.Reques
 	if err := req.Storage.Delete(ctx, configStorageKey); err != nil {
 		return nil, err
 	}
-	b.configCache.Delete(configStorageKey)
 	return nil, nil
 }
 
-// cachedConfig may return nil without error if the user doesn't currently have a config.
-// The cache should always reflect the current stored config, so if the config
-// is nil, there's no need to do an additional check in storage.
-func (b *backend) cachedConfig() (*models.Configuration, error) {
-	configIfc, found := b.configCache.Get(configStorageKey)
-	if !found {
-		return nil, nil
-	}
-	config, ok := configIfc.(*models.Configuration)
-	if !ok {
-		return nil, fmt.Errorf("couldn't read config: %s is a %t", configIfc, configIfc)
-	}
-	return config, nil
-}
-
 // storedConfig may return nil without error if the user doesn't currently have a config.
-func storedConfig(ctx context.Context, storage logical.Storage) (*models.Configuration, error) {
+func config(ctx context.Context, storage logical.Storage) (*models.Configuration, error) {
 	entry, err := storage.Get(ctx, configStorageKey)
 	if err != nil {
 		return nil, err

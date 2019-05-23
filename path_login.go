@@ -3,12 +3,12 @@ package pcf
 import (
 	"context"
 	"fmt"
-	"github.com/hashicorp/go-uuid"
 	"net"
 	"strings"
 	"time"
 
 	"github.com/cloudfoundry-community/go-cfclient"
+	"github.com/hashicorp/go-uuid"
 	"github.com/hashicorp/vault-plugin-auth-pcf/models"
 	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
 	"github.com/hashicorp/vault-plugin-auth-pcf/util"
@@ -142,7 +142,7 @@ func (b *backend) attemptLogin(ctx context.Context, req *logical.Request, data *
 
 	// Ensure the matching certificate was actually issued by the CA configured.
 	// This protects against self-generated client certificates.
-	config, err := b.cachedConfig()
+	config, err := config(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func (b *backend) attemptLogin(ctx context.Context, req *logical.Request, data *
 }
 
 func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	config, err := b.cachedConfig()
+	config, err := config(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}

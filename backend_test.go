@@ -140,7 +140,7 @@ func (e *Env) ReadConfig(t *testing.T) {
 	if resp == nil {
 		t.Fatal("response shouldn't be nil")
 	}
-	if reflect.DeepEqual(resp.Data["certificates"], e.TestConf.Certificates) {
+	if !reflect.DeepEqual(resp.Data["certificates"], e.TestConf.Certificates) {
 		t.Fatalf("expected %s but received %s", e.TestConf.Certificates, resp.Data["certificates"])
 	}
 	if resp.Data["pcf_api_addr"] != e.TestConf.PCFAPIAddr {
@@ -160,7 +160,7 @@ func (e *Env) UpdateConfig(t *testing.T) {
 		Path:      "config",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"certificates": "foo1,foo2",
+			"certificates": []string{"foo1", "foo2"},
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Ctx, req)
