@@ -2,53 +2,39 @@ package pcf
 
 import (
 	"context"
-
+	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
-	cache "github.com/patrickmn/go-cache"
 )
 
 func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
 	b := &backend{
-		configCache: cache.New(cache.NoExpiration, -1),
+		logger: hclog.Default(),
 	}
 	b.Backend = &framework.Backend{
-		Help: backendHelp,
+		AuthRenew: b.pathLoginRenew,
+		Help:      backendHelp,
 		PathsSpecial: &logical.Paths{
 			SealWrapStorage: []string{"config"},
+			Unauthenticated: []string{"login"},
 		},
 		Paths: []*framework.Path{
 			b.pathConfig(),
 			b.pathListRoles(),
 			b.pathRoles(),
+			b.pathLogin(),
 		},
 		BackendType: logical.TypeCredential,
 	}
 	if err := b.Setup(ctx, conf); err != nil {
 		return nil, err
 	}
-
-	// Populate the configCache from storage.
-	config, err := storedConfig(ctx, conf.StorageView)
-	if err != nil {
-		return nil, err
-	}
-	if config != nil {
-		b.configCache.SetDefault(configStorageKey, &config)
-	}
 	return b, nil
 }
 
 type backend struct {
 	*framework.Backend
-
-	// This cache mirrors storage's state at all times.
-	// This cache's lifecycle is:
-	//   - On startup, it's populated from storage if it exists.
-	//   - On create config calls, it's added or overwritten in the cache.
-	//   - On delete config calls, it's removed from the cache.
-	// For convenience, use b.cachedConfig() to retrieve its present value.
-	configCache *cache.Cache
+	logger hclog.Logger
 }
 
 const backendHelp = `

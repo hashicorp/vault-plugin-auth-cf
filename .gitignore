@@ -22,4 +22,4 @@ pkg*
 bin*
 
 # Ignore fake certificates generated for tests
-testdata/fake/*
+testdata/fake-certificates*

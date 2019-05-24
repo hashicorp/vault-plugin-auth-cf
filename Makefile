@@ -54,4 +54,7 @@ fmt:
 proto:
 	protoc *.proto --go_out=plugins=grpc:.
 
+tools:
+	go install ./...
+
 .PHONY: bin default generate test vet bootstrap fmt fmtcheck

@@ -1,30 +1,34 @@
 package signatures
 
 import (
+	"fmt"
+	"io/ioutil"
 	"testing"
 	"time"
-
-	"github.com/hashicorp/go-hclog"
 )
 
 func TestSignVerifyIssuedByFakes(t *testing.T) {
-	body := `{"hello": "world"}`
+	certBytes, err := ioutil.ReadFile("../testdata/fake-certificates/instance.crt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	signatureData := &SignatureData{
+		SigningTime: time.Now(),
+		Role:        "my-role",
+		Certificate: string(certBytes),
+	}
 
-	loggerOpts := hclog.DefaultOptions
-	loggerOpts.Level = hclog.Debug
-	logger := hclog.New(loggerOpts)
-
-	signature, signingTime, err := Sign(logger, "../testdata/fake/instance.key", body)
+	signature, err := Sign("../testdata/fake-certificates/instance.key", signatureData)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	clientCert, err := Verify(logger, "../testdata/fake/instance.crt", signature, body, signingTime.Format(TimeFormat))
+	clientCert, err := Verify(signature, signatureData)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	isIssuer, err := IsIssuer("../testdata/fake/ca.crt", clientCert)
+	isIssuer, err := IsIssuer("../testdata/fake-certificates/ca.crt", clientCert)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,34 +38,57 @@ func TestSignVerifyIssuedByFakes(t *testing.T) {
 }
 
 func TestSignVerifyIssuedByReal(t *testing.T) {
-	body := `{"hello": "world"}`
+	certBytes, err := ioutil.ReadFile("../testdata/real-certificates/instance.crt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	signatureData := &SignatureData{
+		SigningTime: time.Now(),
+		Role:        "my-role",
+		Certificate: string(certBytes),
+	}
 
-	loggerOpts := hclog.DefaultOptions
-	loggerOpts.Level = hclog.Debug
-	logger := hclog.New(loggerOpts)
-
-	signature, signingTime, err := Sign(logger, "../testdata/real/instance.key", body)
+	signature, err := Sign("../testdata/real-certificates/instance.key", signatureData)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	clientCert, err := Verify(logger, "../testdata/real/instance.crt", signature, body, signingTime.Format(TimeFormat))
+	clientCert, err := Verify(signature, signatureData)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := IsIssuer("../testdata/real/ca.crt", clientCert); err == nil {
+	if _, err := IsIssuer("../testdata/real-certificates/ca.crt", clientCert); err == nil {
 		t.Fatal(`expected error: x509: certificate has expired or is not yet valid`)
 	}
 }
 
-func TestGenerateStringToSign(t *testing.T) {
-	staticT := time.Date(2017, time.January, 1, 1, 1, 1, 1, time.UTC)
-	stringToSign, err := generateStringToSign(hclog.Default(), `{"hello": "world"}`, staticT.Format(TimeFormat))
+// TestSignature is present to help implement the signing algorithm in other languages.
+func TestSignature(t *testing.T) {
+	sampleSigningTime := "2019-05-20T22:08:40Z"
+	sampleRole := "sample-role"
+	sampleCertificate := "../testdata/real-certificates/instance.crt"
+	sampleKey := "../testdata/real-certificates/instance.key"
+
+	signingTime, err := time.Parse(TimeFormat, sampleSigningTime)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stringToSign != "time=2017-01-01T01:01:01Z&body=pbxAhSQxn83Jh9R8QJDpYoGllxkDz3SEgzlNpJArvnU=" {
-		t.Fatalf(`expected "time=2017-01-01T01:01:01Z&body=pbxAhSQxn83Jh9R8QJDpYoGllxkDz3SEgzlNpJArvnU=" but received %q`, stringToSign)
+	certBytes, err := ioutil.ReadFile(sampleCertificate)
+	if err != nil {
+		t.Fatal(err)
 	}
+	signatureData := &SignatureData{
+		SigningTime: signingTime,
+		Role:        sampleRole,
+		Certificate: string(certBytes),
+	}
+	fmt.Println("hashing string: " + signatureData.toSign())
+	fmt.Printf("resulting hash: %b\n", signatureData.hash())
+
+	signature, err := Sign(sampleKey, signatureData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println("resulting signature: " + signature)
 }

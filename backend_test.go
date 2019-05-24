@@ -10,6 +10,9 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/vault-plugin-auth-pcf/models"
+	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
+	"github.com/hashicorp/vault-plugin-auth-pcf/testdata/pcf-api"
 	"github.com/hashicorp/vault/sdk/helper/parseutil"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -18,16 +21,19 @@ func TestBackend(t *testing.T) {
 	ctx := context.Background()
 	storage := &logical.InmemStorage{}
 
-	caCertBytes, err := ioutil.ReadFile("testdata/fake/ca.crt")
+	caCertBytes, err := ioutil.ReadFile("testdata/fake-certificates/ca.crt")
+	if err != nil {
+		t.Fatalf("error reading fake certs, to resolve this run '$ make test' to generate them then try again; %s", err)
+	}
+	invalidCaCertBytes, err := ioutil.ReadFile("testdata/fake-certificates/ca.crt")
 	if err != nil {
 		t.Fatal(err)
 	}
-	testConf, err := NewConfiguration(
-		string(caCertBytes),
-		"https://api.10.244.0.34.xip.io",
-		"username",
-		"password",
-	)
+
+	pcfServer := api.MockServer(false)
+	defer pcfServer.Close()
+
+	testConf, err := models.NewConfiguration([]string{string(caCertBytes), string(invalidCaCertBytes)}, pcfServer.URL, api.AuthUsername, api.AuthPassword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +57,7 @@ func TestBackend(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parsedCIDRs, err := parseutil.ParseAddrs([]string{"192.168.0.15/24", "192.168.0.15/25"})
+	parsedCIDRs, err := parseutil.ParseAddrs([]string{"10.255.181.105/24"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,11 +67,11 @@ func TestBackend(t *testing.T) {
 		Storage:  storage,
 		Backend:  backend,
 		TestConf: testConf,
-		TestRole: &roleEntry{
-			BoundAppIDs:      []string{"bound app id 1", "bound app id 2"},
-			BoundSpaceIDs:    []string{"bound space id 1", "bound space id 2"},
-			BoundOrgIDs:      []string{"bound org id 1", "bound org id 2"},
-			BoundInstanceIDs: []string{"bound instance id 1", "bound instance id 2"},
+		TestRole: &models.RoleEntry{
+			BoundAppIDs:      []string{api.FoundAppGUID},
+			BoundSpaceIDs:    []string{api.FoundSpaceGUID},
+			BoundOrgIDs:      []string{api.FoundOrgGUID},
+			BoundInstanceIDs: []string{api.FoundServiceGUID},
 			BoundCIDRs:       parsedCIDRs,
 			Policies:         []string{"default", "foo"},
 			TTL:              60,
@@ -73,14 +79,22 @@ func TestBackend(t *testing.T) {
 			Period:           5 * 60,
 		},
 	}
+	// Exercise all the endpoints.
 	t.Run("create config", env.CreateConfig)
 	t.Run("read config", env.ReadConfig)
+	t.Run("update config", env.UpdateConfig)
+	t.Run("read updated config", env.ReadUpdatedConfig)
 	t.Run("delete config", env.DeleteConfig)
 	t.Run("create role", env.CreateRole)
 	t.Run("update role", env.UpdateRole)
 	t.Run("read role", env.ReadRole)
 	t.Run("list roles", env.ListRoles)
 	t.Run("delete role", env.DeleteRole)
+
+	// Actually perform the flow needed to log in.
+	t.Run("create config", env.CreateConfig)
+	t.Run("create role", env.CreateRole)
+	t.Run("login", env.Login)
 }
 
 type Env struct {
@@ -88,8 +102,8 @@ type Env struct {
 	Storage logical.Storage
 
 	Backend  logical.Backend
-	TestConf *configuration
-	TestRole *roleEntry
+	TestConf *models.Configuration
+	TestRole *models.RoleEntry
 }
 
 func (e *Env) CreateConfig(t *testing.T) {
@@ -98,7 +112,7 @@ func (e *Env) CreateConfig(t *testing.T) {
 		Path:      "config",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"certificate":  e.TestConf.Certificate,
+			"certificates": e.TestConf.Certificates,
 			"pcf_api_addr": e.TestConf.PCFAPIAddr,
 			"pcf_username": e.TestConf.PCFUsername,
 			"pcf_password": e.TestConf.PCFPassword,
@@ -126,8 +140,53 @@ func (e *Env) ReadConfig(t *testing.T) {
 	if resp == nil {
 		t.Fatal("response shouldn't be nil")
 	}
-	if resp.Data["certificate"] != e.TestConf.Certificate {
-		t.Fatalf("expected %s but received %s", e.TestConf.Certificate, resp.Data["certificate"])
+	if !reflect.DeepEqual(resp.Data["certificates"], e.TestConf.Certificates) {
+		t.Fatalf("expected %s but received %s", e.TestConf.Certificates, resp.Data["certificates"])
+	}
+	if resp.Data["pcf_api_addr"] != e.TestConf.PCFAPIAddr {
+		t.Fatalf("expected %s but received %s", e.TestConf.PCFAPIAddr, resp.Data["pcf_api_addr"])
+	}
+	if resp.Data["pcf_username"] != e.TestConf.PCFUsername {
+		t.Fatalf("expected %s but received %s", e.TestConf.PCFUsername, resp.Data["pcf_username"])
+	}
+	if resp.Data["pcf_password"] != nil {
+		t.Fatalf("expected %s but received %s", "nil", resp.Data["pcf_password"])
+	}
+}
+
+func (e *Env) UpdateConfig(t *testing.T) {
+	req := &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "config",
+		Storage:   e.Storage,
+		Data: map[string]interface{}{
+			"certificates": []string{"foo1", "foo2"},
+		},
+	}
+	resp, err := e.Backend.HandleRequest(e.Ctx, req)
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr:%v", resp, err)
+	}
+	if resp != nil {
+		t.Fatal("expected nil response to represent a 204")
+	}
+}
+
+func (e *Env) ReadUpdatedConfig(t *testing.T) {
+	req := &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "config",
+		Storage:   e.Storage,
+	}
+	resp, err := e.Backend.HandleRequest(e.Ctx, req)
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr:%v", resp, err)
+	}
+	if resp == nil {
+		t.Fatal("response shouldn't be nil")
+	}
+	if reflect.DeepEqual(resp.Data["certificates"], []string{"foo1", "foo2"}) {
+		t.Fatalf("expected %s but received %s", e.TestConf.Certificates, resp.Data["certificates"])
 	}
 	if resp.Data["pcf_api_addr"] != e.TestConf.PCFAPIAddr {
 		t.Fatalf("expected %s but received %s", e.TestConf.PCFAPIAddr, resp.Data["pcf_api_addr"])
@@ -181,6 +240,7 @@ func (e *Env) CreateRole(t *testing.T) {
 			"ttl":                    fmt.Sprintf("%ds", e.TestRole.TTL),
 			"max_ttl":                fmt.Sprintf("%ds", e.TestRole.MaxTTL),
 			"period":                 fmt.Sprintf("%ds", e.TestRole.Period),
+			"disable_ip_matching":    e.TestRole.DisableIPMatching,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Ctx, req)
@@ -194,7 +254,7 @@ func (e *Env) CreateRole(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	role := &roleEntry{}
+	role := &models.RoleEntry{}
 	if err := entry.DecodeJSON(role); err != nil {
 		t.Fatal(err)
 	}
@@ -225,6 +285,9 @@ func (e *Env) CreateRole(t *testing.T) {
 	if e.TestRole.Period*time.Second != role.Period {
 		t.Fatalf("expected %s but received %s", e.TestRole.Period*time.Second, role.Period)
 	}
+	if e.TestRole.DisableIPMatching != role.DisableIPMatching {
+		t.Fatalf("expected %v but received %v", e.TestRole.DisableIPMatching, role.DisableIPMatching)
+	}
 }
 
 func (e *Env) UpdateRole(t *testing.T) {
@@ -239,6 +302,7 @@ func (e *Env) UpdateRole(t *testing.T) {
 			"bound_cidrs":            []string{},
 			"policies":               e.TestRole.Policies,
 			"max_ttl":                "180s",
+			"disable_ip_matching":    true,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Ctx, req)
@@ -252,7 +316,7 @@ func (e *Env) UpdateRole(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	role := &roleEntry{}
+	role := &models.RoleEntry{}
 	if err := entry.DecodeJSON(role); err != nil {
 		t.Fatal(err)
 	}
@@ -303,7 +367,7 @@ func (e *Env) ReadRole(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	role := &roleEntry{}
+	role := &models.RoleEntry{}
 	if err := json.Unmarshal(b, role); err != nil {
 		t.Fatal(err)
 	}
@@ -373,5 +437,78 @@ func (e *Env) DeleteRole(t *testing.T) {
 	}
 	if val != nil {
 		t.Fatal("role shouldn't still be in storage")
+	}
+}
+
+func (e *Env) Login(t *testing.T) {
+	certBytes, err := ioutil.ReadFile("testdata/fake-certificates/instance.crt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pathToPrivateKey := "testdata/fake-certificates/instance.key"
+	signingTime := time.Now()
+	signatureData := &signatures.SignatureData{
+		SigningTime: signingTime,
+		Role:        "test-role",
+		Certificate: string(certBytes),
+	}
+	signature, err := signatures.Sign(pathToPrivateKey, signatureData)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "login",
+		Storage:   e.Storage,
+		Data: map[string]interface{}{
+			"role":         "test-role",
+			"signature":    signature,
+			"signing_time": signingTime.UTC().Format(signatures.TimeFormat),
+			"certificate":  string(certBytes),
+		},
+		Connection: &logical.Connection{
+			RemoteAddr: "10.255.181.105",
+		},
+	}
+	resp, err := e.Backend.HandleRequest(e.Ctx, req)
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr:%v", resp, err)
+	}
+
+	if resp.Auth.DisplayName != api.FoundServiceGUID {
+		t.Fatalf("expected %s but received %s", api.FoundServiceGUID, resp.Auth.DisplayName)
+	}
+	if len(resp.Auth.Policies) != 2 {
+		t.Fatalf("expected 2 policies but received %d", len(resp.Auth.Policies))
+	}
+	if resp.Auth.Metadata["role"] != "test-role" {
+		t.Fatalf("expected %s but received %s", "test-role", resp.Auth.Metadata["role"])
+	}
+	if resp.Auth.Metadata["instance_id"] != api.FoundServiceGUID {
+		t.Fatalf("expected %s but received %s", api.FoundServiceGUID, resp.Auth.Metadata["instance_id"])
+	}
+	if resp.Auth.Metadata["org_id"] != api.FoundOrgGUID {
+		t.Fatalf("expected %s but received %s", api.FoundOrgGUID, resp.Auth.Metadata["org_id"])
+	}
+	if resp.Auth.Metadata["app_id"] != api.FoundAppGUID {
+		t.Fatalf("expected %s but received %s", api.FoundAppGUID, resp.Auth.Metadata["app_id"])
+	}
+	if resp.Auth.Metadata["space_id"] != api.FoundSpaceGUID {
+		t.Fatalf("expected %s but received %s", api.FoundSpaceGUID, resp.Auth.Metadata["space_id"])
+	}
+	if resp.Auth.Metadata["ip_addresses"] != "" {
+		t.Fatalf("expected %s but received %s", "", resp.Auth.Metadata["ip_addresses"])
+	}
+	if resp.Auth.Alias.Name != api.FoundAppGUID {
+		t.Fatalf("expected %s but received %s", api.FoundServiceGUID, resp.Auth.Alias.Name)
+	}
+	if !resp.Auth.LeaseOptions.Renewable {
+		t.Fatal("expected lease to be renewable")
+	}
+	if resp.Auth.LeaseOptions.TTL != time.Minute {
+		t.Fatalf("expected a minute but received %s", e.TestRole.TTL)
+	}
+	if resp.Auth.LeaseOptions.MaxTTL != time.Minute*2 {
+		t.Fatalf("expected 2 minutes but received %s", resp.Auth.LeaseOptions.MaxTTL)
 	}
 }
