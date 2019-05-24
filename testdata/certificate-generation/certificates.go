@@ -9,31 +9,114 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/big"
 	"net"
+	"os"
 	"time"
+
+	"github.com/hashicorp/go-multierror"
+	"github.com/hashicorp/go-uuid"
 )
 
-func publicKey(priv interface{}) interface{} {
-	switch k := priv.(type) {
-	case *rsa.PrivateKey:
-		return &k.PublicKey
-	default:
-		return nil
+// NewTestCerts is a convenience method for testing. It creates a group of test certificates with the
+// client certificate reflecting the given values. Close() should be called when done to immediately
+// delete the three temporary files it has created.
+//
+// Usage:
+//
+// testCerts, err := certificates.NewTestCerts(...)
+// if err != nil {
+// 		...
+// }
+// defer func(){
+// 		if err := testCerts.Close(); err != nil {
+//			...
+// 		}
+// }()
+//
+func NewTestCerts(instanceID, orgID, spaceID, appID, ipAddress string) (*TestCertificates, error) {
+	caCert, instanceCert, instanceKey, err := generate(instanceID, orgID, spaceID, appID, ipAddress)
+	if err != nil {
+		return nil, err
 	}
+
+	var cleanupFuncs []func() error
+	success := false
+	defer func() {
+		if success {
+			return
+		}
+		for _, f := range cleanupFuncs {
+			// Here we intentionally ignore errors because
+			// if these files aren't cleaned up, they've just
+			// been placed in a /tmp directory anyways so the OS
+			// will eventually clean them up. We do want to continue
+			// trying upon errors so we don't check and return them.
+			f()
+		}
+	}()
+
+	pathToCACertificate, closeCA, err := makePathTo(caCert)
+	if err != nil {
+		return nil, err
+	}
+	cleanupFuncs = append(cleanupFuncs, closeCA)
+
+	pathToInstanceCertificate, closeInstanceCrt, err := makePathTo(instanceCert)
+	if err != nil {
+		return nil, err
+	}
+	cleanupFuncs = append(cleanupFuncs, closeInstanceCrt)
+
+	pathToInstanceKey, closeInstanceKey, err := makePathTo(instanceKey)
+	if err != nil {
+		return nil, err
+	}
+	cleanupFuncs = append(cleanupFuncs, closeInstanceKey)
+
+	closeFunc := func() error {
+		var result error
+		if err := closeCA(); err != nil {
+			result = multierror.Append(result, err)
+		}
+		if err := closeInstanceCrt(); err != nil {
+			result = multierror.Append(result, err)
+		}
+		if err := closeInstanceKey(); err != nil {
+			result = multierror.Append(result, err)
+		}
+		return result
+	}
+	success = true
+	return &TestCertificates{
+		CACertificate:             caCert,
+		InstanceCertificate:       instanceCert,
+		InstanceKey:               instanceKey,
+		PathToCACertificate:       pathToCACertificate,
+		PathToInstanceCertificate: pathToInstanceCertificate,
+		PathToInstanceKey:         pathToInstanceKey,
+		close:                     closeFunc,
+	}, nil
 }
 
-func pemBlockForKey(priv interface{}) *pem.Block {
-	switch k := priv.(type) {
-	case *rsa.PrivateKey:
-		return &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(k)}
-	default:
-		return nil
-	}
+type TestCertificates struct {
+	CACertificate       string
+	InstanceCertificate string
+	InstanceKey         string
+
+	PathToCACertificate       string
+	PathToInstanceCertificate string
+	PathToInstanceKey         string
+
+	close func() error
 }
 
-func Generate(instanceID, orgID, spaceID, appID, ipAddress string) (caCert, instanceCert, instanceKey string, err error) {
+func (e *TestCertificates) Close() error {
+	return e.close()
+}
 
+func generate(instanceID, orgID, spaceID, appID, ipAddress string) (caCert, instanceCert, instanceKey string, err error) {
 	caPrivateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
 		return "", "", "", err
@@ -116,4 +199,43 @@ func Generate(instanceID, orgID, spaceID, appID, ipAddress string) (caCert, inst
 	out.Reset()
 
 	return caCert, instanceCert, instanceKey, nil
+}
+
+func makePathTo(certOrKey string) (path string, closer func() error, err error) {
+	u, err := uuid.GenerateUUID()
+	if err != nil {
+		return "", nil, err
+	}
+	tmpFile, err := ioutil.TempFile("", u)
+	if err != nil {
+		return "", nil, err
+	}
+	closer = func() error {
+		return os.Remove(tmpFile.Name())
+	}
+	if _, err := tmpFile.Write([]byte(certOrKey)); err != nil {
+		return "", nil, err
+	}
+	if err := tmpFile.Close(); err != nil {
+		return "", nil, err
+	}
+	return tmpFile.Name(), closer, nil
+}
+
+func publicKey(priv interface{}) interface{} {
+	switch k := priv.(type) {
+	case *rsa.PrivateKey:
+		return &k.PublicKey
+	default:
+		return nil
+	}
+}
+
+func pemBlockForKey(priv interface{}) *pem.Block {
+	switch k := priv.(type) {
+	case *rsa.PrivateKey:
+		return &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(k)}
+	default:
+		return nil
+	}
 }

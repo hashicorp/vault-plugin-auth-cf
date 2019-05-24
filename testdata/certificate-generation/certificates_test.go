@@ -1,8 +1,6 @@
 package certificates
 
 import (
-	"io/ioutil"
-	"os"
 	"testing"
 	"time"
 
@@ -11,31 +9,24 @@ import (
 )
 
 func TestGenerate(t *testing.T) {
-	caCert, clientCert, clientKey, err := Generate("instance-id", "org-id", "space-id", "app-id", "10.255.181.105")
+	testCerts, err := NewTestCerts("instance-id", "org-id", "space-id", "app-id", "10.255.181.105")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := testCerts.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
 
 	signatureData := &signatures.SignatureData{
 		SigningTime: time.Now(),
-		Certificate: clientCert,
+		Certificate: testCerts.InstanceCertificate,
 		Role:        "test-role",
 	}
 
-	tmpKeyFile, err := ioutil.TempFile("", "instance.key")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(tmpKeyFile.Name())
-	if _, err := tmpKeyFile.Write([]byte(clientKey)); err != nil {
-		t.Fatal(err)
-	}
-	if err := tmpKeyFile.Close(); err != nil {
-		t.Fatal(err)
-	}
-
 	// Create a signature.
-	signature, err := signatures.Sign(tmpKeyFile.Name(), signatureData)
+	signature, err := signatures.Sign(testCerts.PathToInstanceKey, signatureData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -46,20 +37,8 @@ func TestGenerate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tmpCAFile, err := ioutil.TempFile("", "ca.crt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer os.Remove(tmpCAFile.Name())
-	if _, err := tmpCAFile.Write([]byte(caCert)); err != nil {
-		t.Fatal(err)
-	}
-	if err := tmpCAFile.Close(); err != nil {
-		t.Fatal(err)
-	}
-
 	// Make sure the client certificate was issued by the given CA.
-	isIssuer, err := signatures.IsIssuer(tmpCAFile.Name(), matchingCert)
+	isIssuer, err := signatures.IsIssuer(testCerts.PathToCACertificate, matchingCert)
 	if err != nil {
 		t.Fatal(err)
 	}

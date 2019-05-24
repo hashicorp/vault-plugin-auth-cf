@@ -12,6 +12,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault-plugin-auth-pcf/models"
 	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
+	"github.com/hashicorp/vault-plugin-auth-pcf/testdata/certificate-generation"
 	"github.com/hashicorp/vault-plugin-auth-pcf/testdata/pcf-api"
 	"github.com/hashicorp/vault/sdk/helper/parseutil"
 	"github.com/hashicorp/vault/sdk/logical"
@@ -21,11 +22,17 @@ func TestBackend(t *testing.T) {
 	ctx := context.Background()
 	storage := &logical.InmemStorage{}
 
-	caCertBytes, err := ioutil.ReadFile("testdata/fake-certificates/ca.crt")
+	testCerts, err := certificates.NewTestCerts(api.FoundServiceGUID, api.FoundOrgGUID, api.FoundSpaceGUID, api.FoundAppGUID, "10.255.181.105")
 	if err != nil {
-		t.Fatalf("error reading fake certs, to resolve this run '$ make test' to generate them then try again; %s", err)
+		t.Fatal(err)
 	}
-	invalidCaCertBytes, err := ioutil.ReadFile("testdata/fake-certificates/ca.crt")
+	defer func() {
+		if err := testCerts.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	invalidCaCertBytes, err := ioutil.ReadFile("testdata/real-certificates/ca.crt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -33,7 +40,7 @@ func TestBackend(t *testing.T) {
 	pcfServer := api.MockServer(false)
 	defer pcfServer.Close()
 
-	testConf, err := models.NewConfiguration([]string{string(caCertBytes), string(invalidCaCertBytes)}, pcfServer.URL, api.AuthUsername, api.AuthPassword)
+	testConf, err := models.NewConfiguration([]string{testCerts.CACertificate, string(invalidCaCertBytes)}, pcfServer.URL, api.AuthUsername, api.AuthPassword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,6 +85,7 @@ func TestBackend(t *testing.T) {
 			MaxTTL:           2 * 60,
 			Period:           5 * 60,
 		},
+		TestCerts: testCerts,
 	}
 	// Exercise all the endpoints.
 	t.Run("create config", env.CreateConfig)
@@ -101,9 +109,10 @@ type Env struct {
 	Ctx     context.Context
 	Storage logical.Storage
 
-	Backend  logical.Backend
-	TestConf *models.Configuration
-	TestRole *models.RoleEntry
+	Backend   logical.Backend
+	TestConf  *models.Configuration
+	TestRole  *models.RoleEntry
+	TestCerts *certificates.TestCertificates
 }
 
 func (e *Env) CreateConfig(t *testing.T) {
@@ -441,18 +450,13 @@ func (e *Env) DeleteRole(t *testing.T) {
 }
 
 func (e *Env) Login(t *testing.T) {
-	certBytes, err := ioutil.ReadFile("testdata/fake-certificates/instance.crt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	pathToPrivateKey := "testdata/fake-certificates/instance.key"
 	signingTime := time.Now()
 	signatureData := &signatures.SignatureData{
 		SigningTime: signingTime,
 		Role:        "test-role",
-		Certificate: string(certBytes),
+		Certificate: e.TestCerts.InstanceCertificate,
 	}
-	signature, err := signatures.Sign(pathToPrivateKey, signatureData)
+	signature, err := signatures.Sign(e.TestCerts.PathToInstanceKey, signatureData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -464,7 +468,7 @@ func (e *Env) Login(t *testing.T) {
 			"role":         "test-role",
 			"signature":    signature,
 			"signing_time": signingTime.UTC().Format(signatures.TimeFormat),
-			"certificate":  string(certBytes),
+			"certificate":  e.TestCerts.InstanceCertificate,
 		},
 		Connection: &logical.Connection{
 			RemoteAddr: "10.255.181.105",
