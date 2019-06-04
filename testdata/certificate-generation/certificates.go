@@ -41,54 +41,39 @@ func NewTestCerts(instanceID, orgID, spaceID, appID, ipAddress string) (*TestCer
 		return nil, err
 	}
 
-	var cleanupFuncs []func() error
-	success := false
-	defer func() {
-		if success {
-			return
-		}
-		for _, f := range cleanupFuncs {
-			// Here we intentionally ignore errors because
-			// if these files aren't cleaned up, they've just
-			// been placed in a /tmp directory anyways so the OS
-			// will eventually clean them up. We do want to continue
-			// trying upon errors so we don't check and return them.
-			f()
-		}
-	}()
-
-	pathToCACertificate, closeCA, err := makePathTo(caCert)
+	// Keep a list of paths we've created so that if we fail along the way,
+	// we can attempt to clean them up.
+	var paths []string
+	pathToCACertificate, err := makePathTo(caCert)
 	if err != nil {
+		// No path was successfully created, so we don't need to cleanup here.
 		return nil, err
 	}
-	cleanupFuncs = append(cleanupFuncs, closeCA)
+	paths = append(paths, pathToCACertificate)
 
-	pathToInstanceCertificate, closeInstanceCrt, err := makePathTo(instanceCert)
+	pathToInstanceCertificate, err := makePathTo(instanceCert)
 	if err != nil {
+		if cleanupErr := cleanup(paths); cleanupErr != nil {
+			return nil, multierror.Append(err, cleanupErr)
+		}
 		return nil, err
 	}
-	cleanupFuncs = append(cleanupFuncs, closeInstanceCrt)
+	paths = append(paths, pathToInstanceCertificate)
 
-	pathToInstanceKey, closeInstanceKey, err := makePathTo(instanceKey)
+	pathToInstanceKey, err := makePathTo(instanceKey)
 	if err != nil {
+		if cleanupErr := cleanup(paths); cleanupErr != nil {
+			return nil, multierror.Append(err, cleanupErr)
+		}
 		return nil, err
 	}
-	cleanupFuncs = append(cleanupFuncs, closeInstanceKey)
+	paths = append(paths, pathToInstanceKey)
 
-	closeFunc := func() error {
-		var result error
-		if err := closeCA(); err != nil {
-			result = multierror.Append(result, err)
-		}
-		if err := closeInstanceCrt(); err != nil {
-			result = multierror.Append(result, err)
-		}
-		if err := closeInstanceKey(); err != nil {
-			result = multierror.Append(result, err)
-		}
-		return result
+	// Provide a function to be called at the end cleaning up our temporary files.
+	cleanup := func() error {
+		return cleanup(paths)
 	}
-	success = true
+
 	return &TestCertificates{
 		CACertificate:             caCert,
 		InstanceCertificate:       instanceCert,
@@ -96,8 +81,18 @@ func NewTestCerts(instanceID, orgID, spaceID, appID, ipAddress string) (*TestCer
 		PathToCACertificate:       pathToCACertificate,
 		PathToInstanceCertificate: pathToInstanceCertificate,
 		PathToInstanceKey:         pathToInstanceKey,
-		close:                     closeFunc,
+		cleanup:                   cleanup,
 	}, nil
+}
+
+func cleanup(paths []string) error {
+	var result error
+	for i := 0; i < len(paths); i++ {
+		if err := os.Remove(paths[i]); err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
+	return result
 }
 
 type TestCertificates struct {
@@ -109,11 +104,15 @@ type TestCertificates struct {
 	PathToInstanceCertificate string
 	PathToInstanceKey         string
 
-	close func() error
+	// cleanup contains a function that has a path to all the temporary files we made,
+	// and deletes them. They're all in the /tmp folder so they'll disappear on the next
+	// system restart anyways, but in case of repeated tests, it's best to leave nothing
+	// behind if possible.
+	cleanup func() error
 }
 
 func (e *TestCertificates) Close() error {
-	return e.close()
+	return e.cleanup()
 }
 
 func generate(instanceID, orgID, spaceID, appID, ipAddress string) (caCert, instanceCert, instanceKey string, err error) {
@@ -201,25 +200,22 @@ func generate(instanceID, orgID, spaceID, appID, ipAddress string) (caCert, inst
 	return caCert, instanceCert, instanceKey, nil
 }
 
-func makePathTo(certOrKey string) (path string, closer func() error, err error) {
+func makePathTo(certOrKey string) (string, error) {
 	u, err := uuid.GenerateUUID()
 	if err != nil {
-		return "", nil, err
+		return "", err
 	}
 	tmpFile, err := ioutil.TempFile("", u)
 	if err != nil {
-		return "", nil, err
-	}
-	closer = func() error {
-		return os.Remove(tmpFile.Name())
+		return "", err
 	}
 	if _, err := tmpFile.Write([]byte(certOrKey)); err != nil {
-		return "", nil, err
+		return "", err
 	}
 	if err := tmpFile.Close(); err != nil {
-		return "", nil, err
+		return "", err
 	}
-	return tmpFile.Name(), closer, nil
+	return tmpFile.Name(), nil
 }
 
 func publicKey(priv interface{}) interface{} {
