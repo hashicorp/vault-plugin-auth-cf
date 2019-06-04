@@ -5,15 +5,15 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/hashicorp/vault-plugin-auth-pcf/testdata/pcf-api"
+	"github.com/hashicorp/vault-plugin-auth-pcf/testing/pcf"
 )
 
 func main() {
-	server := api.MockServer(true)
+	server := pcf.MockServer(true)
 	defer server.Close()
 	fmt.Println("running at " + server.URL)
-	fmt.Println("username is " + api.AuthUsername)
-	fmt.Println("password is " + api.AuthPassword)
+	fmt.Println("username is " + pcf.AuthUsername)
+	fmt.Println("password is " + pcf.AuthPassword)
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
 	<-c

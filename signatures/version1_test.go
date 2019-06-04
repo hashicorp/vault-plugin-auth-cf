@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/vault-plugin-auth-pcf/testdata/certificate-generation"
+	"github.com/hashicorp/vault-plugin-auth-pcf/testing/certificates"
 )
 
 func TestSignVerifyIssuedByFakes(t *testing.T) {
-	testCerts, err := certificates.NewTestCerts("doesn't", "really", "matter", "here", "10.255.181.105")
+	testCerts, err := certificates.Generate("doesn't", "really", "matter", "here", "10.255.181.105")
 	if err != nil {
 		t.Fatal(err)
 	}
