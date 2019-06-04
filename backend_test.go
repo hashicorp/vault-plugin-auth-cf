@@ -485,23 +485,23 @@ func (e *Env) Login(t *testing.T) {
 	if len(resp.Auth.Policies) != 2 {
 		t.Fatalf("expected 2 policies but received %d", len(resp.Auth.Policies))
 	}
-	if resp.Auth.Metadata["role"] != "test-role" {
-		t.Fatalf("expected %s but received %s", "test-role", resp.Auth.Metadata["role"])
+	if resp.Auth.InternalData["role"] != "test-role" {
+		t.Fatalf("expected %s but received %s", "test-role", resp.Auth.InternalData["role"])
 	}
-	if resp.Auth.Metadata["instance_id"] != pcf.FoundServiceGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundServiceGUID, resp.Auth.Metadata["instance_id"])
+	if resp.Auth.InternalData["instance_id"] != pcf.FoundServiceGUID {
+		t.Fatalf("expected %s but received %s", pcf.FoundServiceGUID, resp.Auth.InternalData["instance_id"])
 	}
-	if resp.Auth.Metadata["org_id"] != pcf.FoundOrgGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundOrgGUID, resp.Auth.Metadata["org_id"])
+	if resp.Auth.Alias.Metadata["org_id"] != pcf.FoundOrgGUID {
+		t.Fatalf("expected %s but received %s", pcf.FoundOrgGUID, resp.Auth.Alias.Metadata["org_id"])
 	}
-	if resp.Auth.Metadata["app_id"] != pcf.FoundAppGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundAppGUID, resp.Auth.Metadata["app_id"])
+	if resp.Auth.Alias.Metadata["app_id"] != pcf.FoundAppGUID {
+		t.Fatalf("expected %s but received %s", pcf.FoundAppGUID, resp.Auth.Alias.Metadata["app_id"])
 	}
-	if resp.Auth.Metadata["space_id"] != pcf.FoundSpaceGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundSpaceGUID, resp.Auth.Metadata["space_id"])
+	if resp.Auth.Alias.Metadata["space_id"] != pcf.FoundSpaceGUID {
+		t.Fatalf("expected %s but received %s", pcf.FoundSpaceGUID, resp.Auth.Alias.Metadata["space_id"])
 	}
-	if resp.Auth.Metadata["ip_addresses"] != "" {
-		t.Fatalf("expected %s but received %s", "", resp.Auth.Metadata["ip_addresses"])
+	if resp.Auth.InternalData["ip_addresses"] != nil {
+		t.Fatalf("expected %s but received %s", "", resp.Auth.InternalData["ip_addresses"])
 	}
 	if resp.Auth.Alias.Name != pcf.FoundAppGUID {
 		t.Fatalf("expected %s but received %s", pcf.FoundServiceGUID, resp.Auth.Alias.Name)
