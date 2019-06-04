@@ -12,7 +12,7 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault-plugin-auth-pcf/models"
 	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
-	"github.com/hashicorp/vault-plugin-auth-pcf/testdata/certificate-generation"
+	certificates "github.com/hashicorp/vault-plugin-auth-pcf/testdata/certificate-generation"
 	"github.com/hashicorp/vault-plugin-auth-pcf/testdata/pcf-api"
 	"github.com/hashicorp/vault/sdk/helper/parseutil"
 	"github.com/hashicorp/vault/sdk/logical"
