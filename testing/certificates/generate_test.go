@@ -9,7 +9,7 @@ import (
 )
 
 func TestGenerate(t *testing.T) {
-	testCerts, err := NewTestCerts("instance-id", "org-id", "space-id", "app-id", "10.255.181.105")
+	testCerts, err := Generate("instance-id", "org-id", "space-id", "app-id", "10.255.181.105")
 	if err != nil {
 		t.Fatal(err)
 	}

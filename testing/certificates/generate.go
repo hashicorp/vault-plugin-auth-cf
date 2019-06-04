@@ -19,13 +19,13 @@ import (
 	"github.com/hashicorp/go-uuid"
 )
 
-// NewTestCerts is a convenience method for testing. It creates a group of test certificates with the
+// Generate is a convenience method for testing. It creates a group of test certificates with the
 // client certificate reflecting the given values. Close() should be called when done to immediately
 // delete the three temporary files it has created.
 //
 // Usage:
 //
-// testCerts, err := certificates.NewTestCerts(...)
+// testCerts, err := certificates.Generate(...)
 // if err != nil {
 // 		...
 // }
@@ -35,7 +35,7 @@ import (
 // 		}
 // }()
 //
-func NewTestCerts(instanceID, orgID, spaceID, appID, ipAddress string) (*TestCertificates, error) {
+func Generate(instanceID, orgID, spaceID, appID, ipAddress string) (*TestCertificates, error) {
 	caCert, instanceCert, instanceKey, err := generate(instanceID, orgID, spaceID, appID, ipAddress)
 	if err != nil {
 		return nil, err
@@ -83,16 +83,6 @@ func NewTestCerts(instanceID, orgID, spaceID, appID, ipAddress string) (*TestCer
 		PathToInstanceKey:         pathToInstanceKey,
 		cleanup:                   cleanup,
 	}, nil
-}
-
-func cleanup(paths []string) error {
-	var result error
-	for i := 0; i < len(paths); i++ {
-		if err := os.Remove(paths[i]); err != nil {
-			result = multierror.Append(result, err)
-		}
-	}
-	return result
 }
 
 type TestCertificates struct {
@@ -234,4 +224,14 @@ func pemBlockForKey(priv interface{}) *pem.Block {
 	default:
 		return nil
 	}
+}
+
+func cleanup(paths []string) error {
+	var result error
+	for i := 0; i < len(paths); i++ {
+		if err := os.Remove(paths[i]); err != nil {
+			result = multierror.Append(result, err)
+		}
+	}
+	return result
 }
