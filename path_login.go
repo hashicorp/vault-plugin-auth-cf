@@ -367,21 +367,21 @@ func getOrErr(fieldName string, from interface{}) (string, error) {
 	case map[string]interface{}:
 		vIfc, ok := givenMap[fieldName]
 		if !ok {
-			return "", fmt.Errorf("unable to retrieve %q from %q during renewal", fieldName, from)
+			return "", fmt.Errorf("unable to retrieve %q during renewal", fieldName)
 		}
 		v, ok := vIfc.(string)
 		if v == "" {
-			return "", fmt.Errorf("unable to retrieve %q from %q during renewal, not a string", fieldName, from)
+			return "", fmt.Errorf("unable to retrieve %q during renewal, not a string", fieldName)
 		}
 		return v, nil
 	case map[string]string:
 		v, ok := givenMap[fieldName]
 		if !ok {
-			return "", fmt.Errorf("unable to retrieve %q from %q during renewal", fieldName, from)
+			return "", fmt.Errorf("unable to retrieve %q during renewal", fieldName)
 		}
 		return v, nil
 	default:
-		return "", fmt.Errorf("unrecognized type: %s", from)
+		return "", fmt.Errorf("unrecognized type for structure containing %s", fieldName)
 	}
 }
 
