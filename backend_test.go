@@ -12,7 +12,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault-plugin-auth-pcf/models"
 	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
-	"github.com/hashicorp/vault-plugin-auth-pcf/testdata/pcf-api"
+	"github.com/hashicorp/vault-plugin-auth-pcf/testing/certificates"
+	"github.com/hashicorp/vault-plugin-auth-pcf/testing/pcf"
 	"github.com/hashicorp/vault/sdk/helper/parseutil"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -21,19 +22,25 @@ func TestBackend(t *testing.T) {
 	ctx := context.Background()
 	storage := &logical.InmemStorage{}
 
-	caCertBytes, err := ioutil.ReadFile("testdata/fake-certificates/ca.crt")
+	testCerts, err := certificates.Generate(pcf.FoundServiceGUID, pcf.FoundOrgGUID, pcf.FoundSpaceGUID, pcf.FoundAppGUID, "10.255.181.105")
 	if err != nil {
-		t.Fatalf("error reading fake certs, to resolve this run '$ make test' to generate them then try again; %s", err)
+		t.Fatal(err)
 	}
-	invalidCaCertBytes, err := ioutil.ReadFile("testdata/fake-certificates/ca.crt")
+	defer func() {
+		if err := testCerts.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	invalidCaCertBytes, err := ioutil.ReadFile("testdata/real-certificates/ca.crt")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	pcfServer := api.MockServer(false)
+	pcfServer := pcf.MockServer(false)
 	defer pcfServer.Close()
 
-	testConf, err := models.NewConfiguration([]string{string(caCertBytes), string(invalidCaCertBytes)}, pcfServer.URL, api.AuthUsername, api.AuthPassword)
+	testConf, err := models.NewConfiguration([]string{testCerts.CACertificate, string(invalidCaCertBytes)}, pcfServer.URL, pcf.AuthUsername, pcf.AuthPassword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -68,16 +75,17 @@ func TestBackend(t *testing.T) {
 		Backend:  backend,
 		TestConf: testConf,
 		TestRole: &models.RoleEntry{
-			BoundAppIDs:      []string{api.FoundAppGUID},
-			BoundSpaceIDs:    []string{api.FoundSpaceGUID},
-			BoundOrgIDs:      []string{api.FoundOrgGUID},
-			BoundInstanceIDs: []string{api.FoundServiceGUID},
+			BoundAppIDs:      []string{pcf.FoundAppGUID},
+			BoundSpaceIDs:    []string{pcf.FoundSpaceGUID},
+			BoundOrgIDs:      []string{pcf.FoundOrgGUID},
+			BoundInstanceIDs: []string{pcf.FoundServiceGUID},
 			BoundCIDRs:       parsedCIDRs,
 			Policies:         []string{"default", "foo"},
 			TTL:              60,
 			MaxTTL:           2 * 60,
 			Period:           5 * 60,
 		},
+		TestCerts: testCerts,
 	}
 	// Exercise all the endpoints.
 	t.Run("create config", env.CreateConfig)
@@ -101,9 +109,10 @@ type Env struct {
 	Ctx     context.Context
 	Storage logical.Storage
 
-	Backend  logical.Backend
-	TestConf *models.Configuration
-	TestRole *models.RoleEntry
+	Backend   logical.Backend
+	TestConf  *models.Configuration
+	TestRole  *models.RoleEntry
+	TestCerts *certificates.TestCertificates
 }
 
 func (e *Env) CreateConfig(t *testing.T) {
@@ -441,18 +450,13 @@ func (e *Env) DeleteRole(t *testing.T) {
 }
 
 func (e *Env) Login(t *testing.T) {
-	certBytes, err := ioutil.ReadFile("testdata/fake-certificates/instance.crt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	pathToPrivateKey := "testdata/fake-certificates/instance.key"
 	signingTime := time.Now()
 	signatureData := &signatures.SignatureData{
 		SigningTime: signingTime,
 		Role:        "test-role",
-		Certificate: string(certBytes),
+		Certificate: e.TestCerts.InstanceCertificate,
 	}
-	signature, err := signatures.Sign(pathToPrivateKey, signatureData)
+	signature, err := signatures.Sign(e.TestCerts.PathToInstanceKey, signatureData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -464,7 +468,7 @@ func (e *Env) Login(t *testing.T) {
 			"role":         "test-role",
 			"signature":    signature,
 			"signing_time": signingTime.UTC().Format(signatures.TimeFormat),
-			"certificate":  string(certBytes),
+			"certificate":  e.TestCerts.InstanceCertificate,
 		},
 		Connection: &logical.Connection{
 			RemoteAddr: "10.255.181.105",
@@ -475,8 +479,8 @@ func (e *Env) Login(t *testing.T) {
 		t.Fatalf("bad: resp: %#v\nerr:%v", resp, err)
 	}
 
-	if resp.Auth.DisplayName != api.FoundServiceGUID {
-		t.Fatalf("expected %s but received %s", api.FoundServiceGUID, resp.Auth.DisplayName)
+	if resp.Auth.DisplayName != pcf.FoundServiceGUID {
+		t.Fatalf("expected %s but received %s", pcf.FoundServiceGUID, resp.Auth.DisplayName)
 	}
 	if len(resp.Auth.Policies) != 2 {
 		t.Fatalf("expected 2 policies but received %d", len(resp.Auth.Policies))
@@ -484,23 +488,23 @@ func (e *Env) Login(t *testing.T) {
 	if resp.Auth.Metadata["role"] != "test-role" {
 		t.Fatalf("expected %s but received %s", "test-role", resp.Auth.Metadata["role"])
 	}
-	if resp.Auth.Metadata["instance_id"] != api.FoundServiceGUID {
-		t.Fatalf("expected %s but received %s", api.FoundServiceGUID, resp.Auth.Metadata["instance_id"])
+	if resp.Auth.Metadata["instance_id"] != pcf.FoundServiceGUID {
+		t.Fatalf("expected %s but received %s", pcf.FoundServiceGUID, resp.Auth.Metadata["instance_id"])
 	}
-	if resp.Auth.Metadata["org_id"] != api.FoundOrgGUID {
-		t.Fatalf("expected %s but received %s", api.FoundOrgGUID, resp.Auth.Metadata["org_id"])
+	if resp.Auth.Metadata["org_id"] != pcf.FoundOrgGUID {
+		t.Fatalf("expected %s but received %s", pcf.FoundOrgGUID, resp.Auth.Metadata["org_id"])
 	}
-	if resp.Auth.Metadata["app_id"] != api.FoundAppGUID {
-		t.Fatalf("expected %s but received %s", api.FoundAppGUID, resp.Auth.Metadata["app_id"])
+	if resp.Auth.Metadata["app_id"] != pcf.FoundAppGUID {
+		t.Fatalf("expected %s but received %s", pcf.FoundAppGUID, resp.Auth.Metadata["app_id"])
 	}
-	if resp.Auth.Metadata["space_id"] != api.FoundSpaceGUID {
-		t.Fatalf("expected %s but received %s", api.FoundSpaceGUID, resp.Auth.Metadata["space_id"])
+	if resp.Auth.Metadata["space_id"] != pcf.FoundSpaceGUID {
+		t.Fatalf("expected %s but received %s", pcf.FoundSpaceGUID, resp.Auth.Metadata["space_id"])
 	}
 	if resp.Auth.Metadata["ip_addresses"] != "" {
 		t.Fatalf("expected %s but received %s", "", resp.Auth.Metadata["ip_addresses"])
 	}
-	if resp.Auth.Alias.Name != api.FoundAppGUID {
-		t.Fatalf("expected %s but received %s", api.FoundServiceGUID, resp.Auth.Alias.Name)
+	if resp.Auth.Alias.Name != pcf.FoundAppGUID {
+		t.Fatalf("expected %s but received %s", pcf.FoundServiceGUID, resp.Auth.Alias.Name)
 	}
 	if !resp.Auth.LeaseOptions.Renewable {
 		t.Fatal("expected lease to be renewable")

@@ -5,20 +5,28 @@ import (
 	"io/ioutil"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/vault-plugin-auth-pcf/testing/certificates"
 )
 
 func TestSignVerifyIssuedByFakes(t *testing.T) {
-	certBytes, err := ioutil.ReadFile("../testdata/fake-certificates/instance.crt")
+	testCerts, err := certificates.Generate("doesn't", "really", "matter", "here", "10.255.181.105")
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer func() {
+		if err := testCerts.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
 	signatureData := &SignatureData{
 		SigningTime: time.Now(),
 		Role:        "my-role",
-		Certificate: string(certBytes),
+		Certificate: testCerts.InstanceCertificate,
 	}
 
-	signature, err := Sign("../testdata/fake-certificates/instance.key", signatureData)
+	signature, err := Sign(testCerts.PathToInstanceKey, signatureData)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +36,7 @@ func TestSignVerifyIssuedByFakes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	isIssuer, err := IsIssuer("../testdata/fake-certificates/ca.crt", clientCert)
+	isIssuer, err := IsIssuer(testCerts.PathToCACertificate, clientCert)
 	if err != nil {
 		t.Fatal(err)
 	}

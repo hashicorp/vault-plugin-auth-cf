@@ -56,6 +56,7 @@ github.com/hashicorp/vault/api
 github.com/hashicorp/vault/sdk/framework
 github.com/hashicorp/vault/sdk/helper/cidrutil
 github.com/hashicorp/vault/sdk/helper/parseutil
+github.com/hashicorp/vault/sdk/helper/strutil
 github.com/hashicorp/vault/sdk/logical
 github.com/hashicorp/vault/sdk/plugin
 github.com/hashicorp/vault/sdk/helper/errutil
@@ -63,7 +64,6 @@ github.com/hashicorp/vault/sdk/helper/jsonutil
 github.com/hashicorp/vault/sdk/helper/license
 github.com/hashicorp/vault/sdk/helper/logging
 github.com/hashicorp/vault/sdk/helper/salt
-github.com/hashicorp/vault/sdk/helper/strutil
 github.com/hashicorp/vault/sdk/helper/wrapping
 github.com/hashicorp/vault/sdk/version
 github.com/hashicorp/vault/sdk/helper/consts
