@@ -156,12 +156,9 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		Auth: &logical.Auth{
 			Period:   role.Period,
 			Policies: role.Policies,
-			Metadata: map[string]string{
+			InternalData: map[string]interface{}{
 				"role":        roleName,
 				"instance_id": pcfCert.InstanceID,
-				"org_id":      pcfCert.OrgID,
-				"app_id":      pcfCert.AppID,
-				"space_id":    pcfCert.SpaceID,
 				"ip_address":  pcfCert.IPAddress.String(),
 			},
 			DisplayName: pcfCert.InstanceID,
@@ -172,6 +169,11 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 			},
 			Alias: &logical.Alias{
 				Name: pcfCert.AppID,
+				Metadata: map[string]string{
+					"org_id":   pcfCert.OrgID,
+					"app_id":   pcfCert.AppID,
+					"space_id": pcfCert.SpaceID,
+				},
 			},
 			BoundCIDRs: role.BoundCIDRs,
 		},
@@ -187,10 +189,11 @@ func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data
 		return nil, errors.New("no configuration is available for reaching the PCF API")
 	}
 
-	roleName := req.Auth.Metadata["role"]
-	if roleName == "" {
-		return nil, errors.New("unable to retrieve role from metadata during renewal")
+	roleName, err := getOrErr("role", req.Auth.InternalData)
+	if err != nil {
+		return nil, err
 	}
+
 	role, err := getRole(ctx, req.Storage, roleName)
 	if err != nil {
 		return nil, err
@@ -199,13 +202,38 @@ func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data
 		return nil, errors.New("no matching role")
 	}
 
+	instanceID, err := getOrErr("instance_id", req.Auth.InternalData)
+	if err != nil {
+		return nil, err
+	}
+
+	ipAddr, err := getOrErr("ip_address", req.Auth.InternalData)
+	if err != nil {
+		return nil, err
+	}
+
+	orgID, err := getOrErr("org_id", req.Auth.Alias.Metadata)
+	if err != nil {
+		return nil, err
+	}
+
+	spaceID, err := getOrErr("space_id", req.Auth.Alias.Metadata)
+	if err != nil {
+		return nil, err
+	}
+
+	appID, err := getOrErr("app_id", req.Auth.Alias.Metadata)
+	if err != nil {
+		return nil, err
+	}
+
 	// Reconstruct the certificate and ensure it still meets all constraints.
 	pcfCert, err := models.NewPCFCertificate(
-		req.Auth.Metadata["instance_id"],
-		req.Auth.Metadata["org_id"],
-		req.Auth.Metadata["space_id"],
-		req.Auth.Metadata["app_id"],
-		req.Auth.Metadata["ip_address"],
+		instanceID,
+		orgID,
+		spaceID,
+		appID,
+		ipAddr,
 	)
 	if err := b.validate(config, role, pcfCert, req.Connection.RemoteAddr); err != nil {
 		return logical.ErrorResponse(err.Error()), nil
@@ -331,6 +359,30 @@ func parseTime(signingTime string) (time.Time, error) {
 		return signingTime, nil
 	}
 	return time.Time{}, fmt.Errorf("couldn't parse %s", signingTime)
+}
+
+// getOrErr is a convenience method for pulling a string from a map.
+func getOrErr(fieldName string, from interface{}) (string, error) {
+	switch givenMap := from.(type) {
+	case map[string]interface{}:
+		vIfc, ok := givenMap[fieldName]
+		if !ok {
+			return "", fmt.Errorf("unable to retrieve %q during renewal", fieldName)
+		}
+		v, ok := vIfc.(string)
+		if v == "" {
+			return "", fmt.Errorf("unable to retrieve %q during renewal, not a string", fieldName)
+		}
+		return v, nil
+	case map[string]string:
+		v, ok := givenMap[fieldName]
+		if !ok {
+			return "", fmt.Errorf("unable to retrieve %q during renewal", fieldName)
+		}
+		return v, nil
+	default:
+		return "", fmt.Errorf("unrecognized type for structure containing %s", fieldName)
+	}
 }
 
 const pathLoginSyn = `
