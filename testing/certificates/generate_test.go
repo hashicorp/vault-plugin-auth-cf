@@ -6,6 +6,7 @@ import (
 
 	"github.com/hashicorp/vault-plugin-auth-pcf/models"
 	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
+	"github.com/hashicorp/vault-plugin-auth-pcf/util"
 )
 
 func TestGenerate(t *testing.T) {
@@ -20,9 +21,9 @@ func TestGenerate(t *testing.T) {
 	}()
 
 	signatureData := &signatures.SignatureData{
-		SigningTime: time.Now(),
-		Certificate: testCerts.InstanceCertificate,
-		Role:        "test-role",
+		SigningTime:            time.Now(),
+		CFInstanceCertContents: testCerts.InstanceCertificate,
+		Role:                   "test-role",
 	}
 
 	// Create a signature.
@@ -32,21 +33,22 @@ func TestGenerate(t *testing.T) {
 	}
 
 	// Make sure that the signature ties out with the client certificate.
-	matchingCert, err := signatures.Verify(signature, signatureData)
+	signingCert, err := signatures.Verify(signature, signatureData)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Make sure the client certificate was issued by the given CA.
-	isIssuer, err := signatures.IsIssuer(testCerts.PathToCACertificate, matchingCert)
+	intermediateCert, identityCert, err := util.ExtractCertificates(testCerts.InstanceCertificate)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !isIssuer {
-		t.Fatal("not issued by expected cert")
+
+	// Make sure the signing certificate was issued by the given CA.
+	if err := util.Validate([]string{testCerts.CACertificate}, intermediateCert, identityCert, signingCert); err != nil {
+		t.Fatal(err)
 	}
 
-	pcfCert, err := models.NewPCFCertificateFromx509(matchingCert)
+	pcfCert, err := models.NewPCFCertificateFromx509(signingCert)
 	if err != nil {
 		t.Fatal(err)
 	}

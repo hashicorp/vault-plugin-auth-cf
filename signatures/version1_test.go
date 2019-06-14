@@ -2,6 +2,7 @@ package signatures
 
 import (
 	"fmt"
+	"github.com/hashicorp/vault-plugin-auth-pcf/util"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -21,9 +22,9 @@ func TestSignVerifyIssuedByFakes(t *testing.T) {
 	}()
 
 	signatureData := &SignatureData{
-		SigningTime: time.Now(),
-		Role:        "my-role",
-		Certificate: testCerts.InstanceCertificate,
+		SigningTime:            time.Now(),
+		Role:                   "my-role",
+		CFInstanceCertContents: testCerts.InstanceCertificate,
 	}
 
 	signature, err := Sign(testCerts.PathToInstanceKey, signatureData)
@@ -31,17 +32,18 @@ func TestSignVerifyIssuedByFakes(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	clientCert, err := Verify(signature, signatureData)
+	signingCert, err := Verify(signature, signatureData)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	isIssuer, err := IsIssuer(testCerts.PathToCACertificate, clientCert)
+	intermediateCert, identityCert, err := util.ExtractCertificates(testCerts.InstanceCertificate)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !isIssuer {
-		t.Fatal("CA is correct but this says it's not")
+
+	if err := util.Validate([]string{testCerts.CACertificate}, intermediateCert, identityCert, signingCert); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -51,9 +53,9 @@ func TestSignVerifyIssuedByReal(t *testing.T) {
 		t.Fatal(err)
 	}
 	signatureData := &SignatureData{
-		SigningTime: time.Now(),
-		Role:        "my-role",
-		Certificate: string(certBytes),
+		SigningTime:            time.Now(),
+		Role:                   "my-role",
+		CFInstanceCertContents: string(certBytes),
 	}
 
 	signature, err := Sign("../testdata/real-certificates/instance.key", signatureData)
@@ -61,12 +63,20 @@ func TestSignVerifyIssuedByReal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	clientCert, err := Verify(signature, signatureData)
+	signingCert, err := Verify(signature, signatureData)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := IsIssuer("../testdata/real-certificates/ca.crt", clientCert); err == nil {
+	caCertBytes, err := ioutil.ReadFile("../testdata/real-certificates/ca.crt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	intermediateCert, identityCert, err := util.ExtractCertificates(string(certBytes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := util.Validate([]string{string(caCertBytes)}, intermediateCert, identityCert, signingCert); err == nil {
 		t.Fatal(`expected error: x509: certificate has expired or is not yet valid`)
 	}
 }
@@ -87,16 +97,19 @@ func TestSignature(t *testing.T) {
 		t.Fatal(err)
 	}
 	signatureData := &SignatureData{
-		SigningTime: signingTime,
-		Role:        sampleRole,
-		Certificate: string(certBytes),
+		SigningTime:            signingTime,
+		Role:                   sampleRole,
+		CFInstanceCertContents: string(certBytes),
 	}
-	fmt.Println("hashing string: " + signatureData.toSign())
-	fmt.Printf("resulting hash: %b\n", signatureData.hash())
-
+	toSign, err := signatureData.toSign()
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(`hashing string: "` + toSign + `"`)
 	signature, err := Sign(sampleKey, signatureData)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println("resulting signature: " + signature)
+	fmt.Println(`resulting signature: "` + signature + `"`)
+	fmt.Println(`resulting signatures will vary on each run due to random bytes included in the signature`)
 }

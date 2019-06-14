@@ -12,7 +12,7 @@ This is what we expect to see from the testdata/real-certificates/instance.crt,
 which was pulled directly from the CF Dev environment.
 
 $ openssl x509 -in instance.crt -text -noout
-Certificate:
+CFInstanceCertContents:
     Data:
         Version: 3 (0x2)
         Serial Number:
@@ -102,15 +102,9 @@ func TestNewPcfCertificateFromx509(t *testing.T) {
 			certs = append(certs, clientCert)
 		}
 	}
-	// For some reason, in CF Dev we've found that the value at CF_INSTANCE_CERT
-	// can actually contain 2 client certificates. One from the instance identity
-	// service, and one not. In the code, we carefully select the client certificate
-	// that matches the CA, then verify it further to ensure it has the expected PCF
-	// identity material.
 	if len(certs) != 2 {
 		t.Fatalf("expected 2 certs but received %d", len(certs))
 	}
-
 	pcfCert, err := NewPCFCertificateFromx509(certs[1])
 	if err == nil {
 		t.Fatal("expected the second certificate to fail verification")

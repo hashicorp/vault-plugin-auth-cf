@@ -12,10 +12,12 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"time"
 
 	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
+	"github.com/hashicorp/vault-plugin-auth-pcf/util"
 )
 
 var (
@@ -25,25 +27,25 @@ var (
 	pathToCACert = flag.String("ca-cert", "", `The path to the issuing CA certificate: '/path/to/ca.crt'`)
 
 	// In a PCF environment, this will be the value for the environment variable of "CF_INSTANCE_CERT".
-	pathToClientCert = flag.String("instance-cert", "", `The path to the client certificate: '/path/to/instance.crt'`)
+	pathToInstanceCert = flag.String("instance-cert", "", `The path to the client certificate: '/path/to/instance.crt'`)
 
 	// In a PCF environment, this will be the value for the environment variable of "CF_INSTANCE_KEY".
-	pathToClientKey = flag.String("instance-key", "", `The path to the client's private key: '/path/to/instance.key'`)
+	pathToInstanceKey = flag.String("instance-key", "", `The path to the client's private key: '/path/to/instance.key'`)
 )
 
 func main() {
 	flag.Parse()
 
 	if pathToCACert == nil || *pathToCACert == "" {
-		fmt.Println(`"ca-cert" is required`)
+		log.Fatal(`"ca-cert" is required`)
 		os.Exit(1)
 	}
-	if pathToClientCert == nil || *pathToClientCert == "" {
-		fmt.Println(`"client-cert" is required`)
+	if pathToInstanceCert == nil || *pathToInstanceCert == "" {
+		log.Fatal(`"instance-cert" is required`)
 		os.Exit(1)
 	}
-	if pathToClientKey == nil || *pathToClientKey == "" {
-		fmt.Println(`"client-key" is required`)
+	if pathToInstanceKey == nil || *pathToInstanceKey == "" {
+		log.Fatal(`"instance-key" is required`)
 		os.Exit(1)
 	}
 
@@ -53,42 +55,48 @@ func main() {
 		os.Exit(1)
 	}
 
-	clientCertBytes, err := ioutil.ReadFile(*pathToClientCert)
+	caCertBytes, err := ioutil.ReadFile(*pathToCACert)
 	if err != nil {
-		fmt.Printf("couldn't read %s: %s\n", *pathToClientCert, err)
+		fmt.Printf("couldn't read %s: %s\n", *pathToCACert, err)
+		os.Exit(1)
+	}
+
+	instanceCertBytes, err := ioutil.ReadFile(*pathToInstanceCert)
+	if err != nil {
+		fmt.Printf("couldn't read %s: %s\n", *pathToInstanceCert, err)
 		os.Exit(1)
 	}
 
 	signatureData := &signatures.SignatureData{
-		SigningTime: time.Now(),
-		Certificate: string(clientCertBytes),
-		Role:        "test-role",
+		SigningTime:            time.Now(),
+		CFInstanceCertContents: string(instanceCertBytes),
+		Role:                   "test-role",
 	}
 
 	// Create a signature.
-	signature, err := signatures.Sign(dir+"/"+*pathToClientKey, signatureData)
+	signature, err := signatures.Sign(dir+"/"+*pathToInstanceKey, signatureData)
 	if err != nil {
 		fmt.Printf(`couldn't perform signature: %s\n`, err)
 		os.Exit(1)
 	}
 
 	// Make sure that the signature ties out with the client certificate.
-	clientCert, err := signatures.Verify(signature, signatureData)
+	signingCert, err := signatures.Verify(signature, signatureData)
 	if err != nil {
 		fmt.Printf(`couldn't verify signature: %s\n`, err)
 		os.Exit(1)
 	}
 
-	// Make sure the client certificate was issued by the given CA.
-	isIssuer, err := signatures.IsIssuer(dir+"/"+*pathToCACert, clientCert)
+	intermediateCert, identityCert, err := util.ExtractCertificates(string(instanceCertBytes))
 	if err != nil {
-		fmt.Printf(`couldn't confirm issuing CA: %s\n`, err)
+		fmt.Printf(`couldn't extract certificates from %s: %s'`, instanceCertBytes, err)
 		os.Exit(1)
 	}
-	if !isIssuer {
-		fmt.Println("client certificate wasn't issued by this CA")
-		os.Exit(1)
+
+	if err := util.Validate([]string{string(caCertBytes)}, intermediateCert, identityCert, signingCert); err != nil {
+		fmt.Printf(`couldn't validate cert chain: %s'`, err)
 	}
-	fmt.Println("successfully verified that the given certificates and keys are related to each other")
+
+	log.Print("successfully verified that the given certificates and keys are related to each other")
 	os.Exit(0)
 }

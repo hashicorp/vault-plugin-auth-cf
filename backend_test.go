@@ -40,9 +40,13 @@ func TestBackend(t *testing.T) {
 	pcfServer := pcf.MockServer(false)
 	defer pcfServer.Close()
 
-	testConf, err := models.NewConfiguration([]string{testCerts.CACertificate, string(invalidCaCertBytes)}, pcfServer.URL, pcf.AuthUsername, pcf.AuthPassword)
-	if err != nil {
-		t.Fatal(err)
+	testConf := &models.Configuration{
+		IdentityCACertificates: []string{testCerts.CACertificate, string(invalidCaCertBytes)},
+		PCFAPIAddr:             pcfServer.URL,
+		PCFUsername:            pcf.AuthUsername,
+		PCFPassword:            pcf.AuthPassword,
+		LoginMaxMinOld:         5,
+		LoginMaxMinAhead:       1,
 	}
 
 	entry, err := logical.StorageEntryJSON(configStorageKey, testConf)
@@ -121,10 +125,10 @@ func (e *Env) CreateConfig(t *testing.T) {
 		Path:      "config",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"certificates": e.TestConf.Certificates,
-			"pcf_api_addr": e.TestConf.PCFAPIAddr,
-			"pcf_username": e.TestConf.PCFUsername,
-			"pcf_password": e.TestConf.PCFPassword,
+			"identity_ca_certificates": e.TestConf.IdentityCACertificates,
+			"pcf_api_addr":             e.TestConf.PCFAPIAddr,
+			"pcf_username":             e.TestConf.PCFUsername,
+			"pcf_password":             e.TestConf.PCFPassword,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Ctx, req)
@@ -149,8 +153,8 @@ func (e *Env) ReadConfig(t *testing.T) {
 	if resp == nil {
 		t.Fatal("response shouldn't be nil")
 	}
-	if !reflect.DeepEqual(resp.Data["certificates"], e.TestConf.Certificates) {
-		t.Fatalf("expected %s but received %s", e.TestConf.Certificates, resp.Data["certificates"])
+	if !reflect.DeepEqual(resp.Data["identity_ca_certificates"], e.TestConf.IdentityCACertificates) {
+		t.Fatalf("expected %s but received %s", e.TestConf.IdentityCACertificates, resp.Data["identity_ca_certificates"])
 	}
 	if resp.Data["pcf_api_addr"] != e.TestConf.PCFAPIAddr {
 		t.Fatalf("expected %s but received %s", e.TestConf.PCFAPIAddr, resp.Data["pcf_api_addr"])
@@ -169,7 +173,7 @@ func (e *Env) UpdateConfig(t *testing.T) {
 		Path:      "config",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"certificates": []string{"foo1", "foo2"},
+			"identity_ca_certificates": []string{"foo1", "foo2"},
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Ctx, req)
@@ -194,8 +198,8 @@ func (e *Env) ReadUpdatedConfig(t *testing.T) {
 	if resp == nil {
 		t.Fatal("response shouldn't be nil")
 	}
-	if reflect.DeepEqual(resp.Data["certificates"], []string{"foo1", "foo2"}) {
-		t.Fatalf("expected %s but received %s", e.TestConf.Certificates, resp.Data["certificates"])
+	if reflect.DeepEqual(resp.Data["identity_ca_certificates"], []string{"foo1", "foo2"}) {
+		t.Fatalf("expected %s but received %s", e.TestConf.IdentityCACertificates, resp.Data["identity_ca_certificates"])
 	}
 	if resp.Data["pcf_api_addr"] != e.TestConf.PCFAPIAddr {
 		t.Fatalf("expected %s but received %s", e.TestConf.PCFAPIAddr, resp.Data["pcf_api_addr"])
@@ -452,9 +456,9 @@ func (e *Env) DeleteRole(t *testing.T) {
 func (e *Env) Login(t *testing.T) {
 	signingTime := time.Now()
 	signatureData := &signatures.SignatureData{
-		SigningTime: signingTime,
-		Role:        "test-role",
-		Certificate: e.TestCerts.InstanceCertificate,
+		SigningTime:            signingTime,
+		Role:                   "test-role",
+		CFInstanceCertContents: e.TestCerts.InstanceCertificate,
 	}
 	signature, err := signatures.Sign(e.TestCerts.PathToInstanceKey, signatureData)
 	if err != nil {
@@ -465,10 +469,10 @@ func (e *Env) Login(t *testing.T) {
 		Path:      "login",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"role":         "test-role",
-			"signature":    signature,
-			"signing_time": signingTime.UTC().Format(signatures.TimeFormat),
-			"certificate":  e.TestCerts.InstanceCertificate,
+			"role":             "test-role",
+			"signature":        signature,
+			"signing_time":     signingTime.UTC().Format(signatures.TimeFormat),
+			"cf_instance_cert": e.TestCerts.InstanceCertificate,
 		},
 		Connection: &logical.Connection{
 			RemoteAddr: "10.255.181.105",
