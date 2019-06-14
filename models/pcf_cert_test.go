@@ -12,7 +12,7 @@ This is what we expect to see from the testdata/real-certificates/instance.crt,
 which was pulled directly from the CF Dev environment.
 
 $ openssl x509 -in instance.crt -text -noout
-CFInstanceCertContents:
+Certificate:
     Data:
         Version: 3 (0x2)
         Serial Number:

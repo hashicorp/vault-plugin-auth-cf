@@ -101,11 +101,7 @@ func TestSignature(t *testing.T) {
 		Role:                   sampleRole,
 		CFInstanceCertContents: string(certBytes),
 	}
-	toSign, err := signatureData.toSign()
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println(`hashing string: "` + toSign + `"`)
+	fmt.Println(`hashing string: "` + signatureData.toSign() + `"`)
 	signature, err := Sign(sampleKey, signatureData)
 	if err != nil {
 		t.Fatal(err)

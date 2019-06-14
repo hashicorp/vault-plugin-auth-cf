@@ -60,7 +60,7 @@ func (b *backend) pathLogin() *framework.Path {
 
 // operationLoginUpdate is called by those wanting to gain access to Vault.
 // They present the instance certificates that should have been issued by the pre-configured
-// CFInstanceCertContents Authority, and a signature that should have been signed by the instance cert's
+// Certificate Authority, and a signature that should have been signed by the instance cert's
 // private key. If this holds true, there are additional checks verifying everything looks
 // good before authentication is given.
 func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
@@ -91,7 +91,6 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	// Ensure the time it was signed isn't too far in the past or future.
 	config, err := config(ctx, req.Storage)
 	if err != nil {
 		return nil, err
@@ -100,6 +99,7 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		return nil, errors.New("no CA is configured for verifying client certificates")
 	}
 
+	// Ensure the time it was signed isn't too far in the past or future.
 	oldestAllowableSigningTime := timeReceived.Add(time.Minute * time.Duration(-1*config.LoginMaxMinOld))
 	furthestFutureAllowableSigningTime := timeReceived.Add(time.Minute * time.Duration(config.LoginMaxMinAhead))
 	if signingTime.Before(oldestAllowableSigningTime) {
@@ -377,6 +377,6 @@ Authenticates an entity with Vault.
 
 const pathLoginDesc = `
 Authenticate PCF entities using a client certificate issued by the 
-configured CFInstanceCertContents Authority, and signed by a client key belonging
+configured Certificate Authority, and signed by a client key belonging
 to the client certificate.
 `

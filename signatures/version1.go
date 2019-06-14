@@ -30,21 +30,17 @@ type SignatureData struct {
 	CFInstanceCertContents string
 }
 
-func (s *SignatureData) hash() ([]byte, error) {
-	toSign, err := s.toSign()
-	if err != nil {
-		return nil, err
-	}
-	sum := sha256.Sum256([]byte(toSign))
-	return sum[:], nil
+func (s *SignatureData) hash() []byte {
+	sum := sha256.Sum256([]byte(s.toSign()))
+	return sum[:]
 }
 
-func (s *SignatureData) toSign() (string, error) {
+func (s *SignatureData) toSign() string {
 	toHash := ""
 	for _, field := range []string{s.SigningTime.UTC().Format(TimeFormat), s.CFInstanceCertContents, s.Role} {
 		toHash += field
 	}
-	return toHash, nil
+	return toHash
 }
 
 func Sign(pathToPrivateKey string, signatureData *SignatureData) (string, error) {
@@ -65,11 +61,7 @@ func Sign(pathToPrivateKey string, signatureData *SignatureData) (string, error)
 		return "", err
 	}
 
-	hash, err := signatureData.hash()
-	if err != nil {
-		return "", err
-	}
-	signatureBytes, err := rsa.SignPSS(rand.Reader, rsaPrivateKey, crypto.SHA256, hash, nil)
+	signatureBytes, err := rsa.SignPSS(rand.Reader, rsaPrivateKey, crypto.SHA256, signatureData.hash(), nil)
 	if err != nil {
 		return "", err
 	}
@@ -111,12 +103,7 @@ func Verify(signature string, signatureData *SignatureData) (*x509.Certificate, 
 				result = multierror.Append(result, fmt.Errorf("not an rsa public key, it's a %t", instanceCert.PublicKey))
 				continue
 			}
-			hash, err := signatureData.hash()
-			if err != nil {
-				multierror.Append(err)
-				continue
-			}
-			if err := rsa.VerifyPSS(publicKey, crypto.SHA256, hash, signatureBytes, nil); err != nil {
+			if err := rsa.VerifyPSS(publicKey, crypto.SHA256, signatureData.hash(), signatureBytes, nil); err != nil {
 				result = multierror.Append(result, err)
 				continue
 			}

@@ -10,7 +10,6 @@ Usage (example is using the tool from the home directory):
 
 import (
 	"flag"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -51,19 +50,19 @@ func main() {
 
 	dir, err := os.Getwd()
 	if err != nil {
-		fmt.Printf("couldn't get working directory: %s\n", err)
+		log.Fatalf("couldn't get working directory: %s\n", err)
 		os.Exit(1)
 	}
 
 	caCertBytes, err := ioutil.ReadFile(*pathToCACert)
 	if err != nil {
-		fmt.Printf("couldn't read %s: %s\n", *pathToCACert, err)
+		log.Fatalf("couldn't read %s: %s\n", *pathToCACert, err)
 		os.Exit(1)
 	}
 
 	instanceCertBytes, err := ioutil.ReadFile(*pathToInstanceCert)
 	if err != nil {
-		fmt.Printf("couldn't read %s: %s\n", *pathToInstanceCert, err)
+		log.Fatalf("couldn't read %s: %s\n", *pathToInstanceCert, err)
 		os.Exit(1)
 	}
 
@@ -76,25 +75,25 @@ func main() {
 	// Create a signature.
 	signature, err := signatures.Sign(dir+"/"+*pathToInstanceKey, signatureData)
 	if err != nil {
-		fmt.Printf(`couldn't perform signature: %s\n`, err)
+		log.Fatalf(`couldn't perform signature: %s\n`, err)
 		os.Exit(1)
 	}
 
 	// Make sure that the signature ties out with the client certificate.
 	signingCert, err := signatures.Verify(signature, signatureData)
 	if err != nil {
-		fmt.Printf(`couldn't verify signature: %s\n`, err)
+		log.Fatalf(`couldn't verify signature: %s\n`, err)
 		os.Exit(1)
 	}
 
 	intermediateCert, identityCert, err := util.ExtractCertificates(string(instanceCertBytes))
 	if err != nil {
-		fmt.Printf(`couldn't extract certificates from %s: %s'`, instanceCertBytes, err)
+		log.Fatalf(`couldn't extract certificates from %s: %s'`, instanceCertBytes, err)
 		os.Exit(1)
 	}
 
 	if err := util.Validate([]string{string(caCertBytes)}, intermediateCert, identityCert, signingCert); err != nil {
-		fmt.Printf(`couldn't validate cert chain: %s'`, err)
+		log.Fatalf(`couldn't validate cert chain: %s'`, err)
 	}
 
 	log.Print("successfully verified that the given certificates and keys are related to each other")
