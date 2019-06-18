@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/vault-plugin-auth-pcf/models"
 	"github.com/hashicorp/vault-plugin-auth-pcf/util"
@@ -52,20 +53,21 @@ func (b *backend) pathConfig() *framework.Path {
 				Description:      "The password for PCF’s API.",
 				DisplaySensitive: true,
 			},
-			"login_max_minutes_old": {
-				Type:         framework.TypeInt,
-				DisplayName:  "Login Max Minutes Old",
-				DisplayValue: "5",
-				Description: `When logging in, the max number of minutes in the past the "signing_time" can be. Useful for clock drift. 
-Set low to reduce opportunities for replay attacks.`,
-				Default: 5,
+			"login_max_seconds_old": {
+				Type:         framework.TypeDurationSecond,
+				DisplayName:  "Login Max Seconds Old",
+				DisplayValue: "300",
+				Description: `Duration in seconds for the maximum acceptable age of a "signing_time". Useful for clock drift. 
+Set low to reduce the opportunity for replay attacks.`,
+				Default: 300,
 			},
-			"login_max_minutes_ahead": {
+			"login_max_seconds_ahead": {
 				Type:         framework.TypeInt,
-				DisplayName:  "Login Max Minutes Ahead",
-				DisplayValue: "1",
-				Description:  `When logging in, the max number of minutes in the future the "signing_time" can be. Useful for clock drift.`,
-				Default:      1,
+				DisplayName:  "Login Max Seconds Ahead",
+				DisplayValue: "60",
+				Description: `Duration in seconds for the maximum acceptable length in the future a "signing_time" can be. Useful for clock drift.
+Set low to reduce the opportunity for replay attacks.`,
+				Default: 60,
 			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
@@ -113,17 +115,15 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 		pcfApiCertificates := data.Get("pcf_api_trusted_certificates").([]string)
 
 		// Default this to 5 minutes.
-		loginMaxMinOld := 5
-		loginMaxMinOldIfc, ok := data.GetOk("login_max_minutes_old")
-		if ok {
-			loginMaxMinOld = loginMaxMinOldIfc.(int)
+		loginMaxSecOld := 300 * time.Second
+		if raw, ok := data.GetOk("login_max_seconds_old"); ok {
+			loginMaxSecOld = time.Duration(raw.(int)) * time.Second
 		}
 
 		// Default this to 1 minute.
-		loginMaxMinAhead := 1
-		loginMaxMinAheadIfc, ok := data.GetOk("login_max_minutes_ahead")
-		if ok {
-			loginMaxMinAhead = loginMaxMinAheadIfc.(int)
+		loginMaxSecAhead := 60 * time.Second
+		if raw, ok := data.GetOk("login_max_seconds_ahead"); ok {
+			loginMaxSecAhead = time.Duration(raw.(int)) * time.Second
 		}
 		config = &models.Configuration{
 			IdentityCACertificates: identityCACerts,
@@ -131,8 +131,8 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 			PCFAPIAddr:             pcfApiAddr,
 			PCFUsername:            pcfUsername,
 			PCFPassword:            pcfPassword,
-			LoginMaxMinOld:         loginMaxMinOld,
-			LoginMaxMinAhead:       loginMaxMinAhead,
+			LoginMaxSecOld:         loginMaxSecOld,
+			LoginMaxSecAhead:       loginMaxSecAhead,
 		}
 	} else {
 		// They're updating a config. Only update the fields that have been sent in the call.
@@ -177,11 +177,11 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 		if raw, ok := data.GetOk("pcf_password"); ok {
 			config.PCFPassword = raw.(string)
 		}
-		if raw, ok := data.GetOk("login_max_minutes_old"); ok {
-			config.LoginMaxMinOld = raw.(int)
+		if raw, ok := data.GetOk("login_max_seconds_old"); ok {
+			config.LoginMaxSecOld = time.Duration(raw.(int)) * time.Second
 		}
-		if raw, ok := data.GetOk("login_max_minutes_ahead"); ok {
-			config.LoginMaxMinAhead = raw.(int)
+		if raw, ok := data.GetOk("login_max_seconds_ahead"); ok {
+			config.LoginMaxSecAhead = time.Duration(raw.(int)) * time.Second
 		}
 	}
 
@@ -225,8 +225,8 @@ func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request,
 			"pcf_api_trusted_certificates": config.PCFAPICertificates,
 			"pcf_api_addr":                 config.PCFAPIAddr,
 			"pcf_username":                 config.PCFUsername,
-			"login_max_minutes_old":        config.LoginMaxMinOld,
-			"login_max_minutes_ahead":      config.LoginMaxMinAhead,
+			"login_max_seconds_old":        config.LoginMaxSecOld,
+			"login_max_seconds_ahead":      config.LoginMaxSecAhead,
 		},
 	}, nil
 }

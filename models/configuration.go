@@ -1,5 +1,7 @@
 package models
 
+import "time"
+
 // Configuration is the config as it's reflected in Vault's storage system.
 type Configuration struct {
 	// IdentityCACertificates are the CA certificates that should be used for verifying client certificates.
@@ -17,11 +19,11 @@ type Configuration struct {
 	// The password for the PCF API.
 	PCFPassword string `json:"pcf_password"`
 
-	// The maximum minutes old a login request's signing time can be.
+	// The maximum seconds old a login request's signing time can be.
 	// This is configurable because in some test environments we found as much as 2 hours of clock drift.
-	LoginMaxMinOld int `json:"login_max_minutes_old"`
+	LoginMaxSecOld time.Duration `json:"login_max_seconds_old"`
 
-	// The maximum minutes ahead a login request's signing time can be.
+	// The maximum seconds ahead a login request's signing time can be.
 	// This is configurable because in some test environments we found as much as 2 hours of clock drift.
-	LoginMaxMinAhead int `json:"login_max_minutes_ahead"`
+	LoginMaxSecAhead time.Duration `json:"login_max_seconds_ahead"`
 }

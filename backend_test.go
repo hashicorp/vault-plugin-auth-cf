@@ -45,8 +45,8 @@ func TestBackend(t *testing.T) {
 		PCFAPIAddr:             pcfServer.URL,
 		PCFUsername:            pcf.AuthUsername,
 		PCFPassword:            pcf.AuthPassword,
-		LoginMaxMinOld:         5,
-		LoginMaxMinAhead:       1,
+		LoginMaxSecOld:         5,
+		LoginMaxSecAhead:       1,
 	}
 
 	entry, err := logical.StorageEntryJSON(configStorageKey, testConf)
@@ -129,6 +129,8 @@ func (e *Env) CreateConfig(t *testing.T) {
 			"pcf_api_addr":             e.TestConf.PCFAPIAddr,
 			"pcf_username":             e.TestConf.PCFUsername,
 			"pcf_password":             e.TestConf.PCFPassword,
+			"login_max_seconds_old":    12,
+			"login_max_seconds_ahead":  13,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Ctx, req)
