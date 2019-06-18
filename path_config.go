@@ -98,7 +98,7 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 		// They're creating a config.
 		identityCACerts := data.Get("identity_ca_certificates").([]string)
 		if len(identityCACerts) == 0 {
-			return logical.ErrorResponse("'certificates' is required"), nil
+			return logical.ErrorResponse("'identity_ca_certificates' is required"), nil
 		}
 		pcfApiAddr := data.Get("pcf_api_addr").(string)
 		if pcfApiAddr == "" {
@@ -137,36 +137,10 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 	} else {
 		// They're updating a config. Only update the fields that have been sent in the call.
 		if raw, ok := data.GetOk("identity_ca_certificates"); ok {
-			switch v := raw.(type) {
-			case []interface{}:
-				certificates := make([]string, len(v))
-				for _, certificateIfc := range v {
-					certificate, ok := certificateIfc.(string)
-					if !ok {
-						continue
-					}
-					certificates = append(certificates, certificate)
-				}
-				config.IdentityCACertificates = certificates
-			case string:
-				config.IdentityCACertificates = []string{v}
-			}
+			config.IdentityCACertificates = raw.([]string)
 		}
 		if raw, ok := data.GetOk("pcf_api_trusted_certificates"); ok {
-			switch v := raw.(type) {
-			case []interface{}:
-				pcfAPICertificates := make([]string, len(v))
-				for _, certificateIfc := range v {
-					certificate, ok := certificateIfc.(string)
-					if !ok {
-						continue
-					}
-					pcfAPICertificates = append(pcfAPICertificates, certificate)
-				}
-				config.PCFAPICertificates = pcfAPICertificates
-			case string:
-				config.PCFAPICertificates = []string{v}
-			}
+			config.PCFAPICertificates = raw.([]string)
 		}
 		if raw, ok := data.GetOk("pcf_api_addr"); ok {
 			config.PCFAPIAddr = raw.(string)
