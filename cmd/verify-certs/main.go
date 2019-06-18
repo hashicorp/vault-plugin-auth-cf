@@ -37,33 +37,27 @@ func main() {
 
 	if pathToCACert == nil || *pathToCACert == "" {
 		log.Fatal(`"ca-cert" is required`)
-		os.Exit(1)
 	}
 	if pathToInstanceCert == nil || *pathToInstanceCert == "" {
 		log.Fatal(`"instance-cert" is required`)
-		os.Exit(1)
 	}
 	if pathToInstanceKey == nil || *pathToInstanceKey == "" {
 		log.Fatal(`"instance-key" is required`)
-		os.Exit(1)
 	}
 
 	dir, err := os.Getwd()
 	if err != nil {
 		log.Fatalf("couldn't get working directory: %s\n", err)
-		os.Exit(1)
 	}
 
 	caCertBytes, err := ioutil.ReadFile(*pathToCACert)
 	if err != nil {
 		log.Fatalf("couldn't read %s: %s\n", *pathToCACert, err)
-		os.Exit(1)
 	}
 
 	instanceCertBytes, err := ioutil.ReadFile(*pathToInstanceCert)
 	if err != nil {
 		log.Fatalf("couldn't read %s: %s\n", *pathToInstanceCert, err)
-		os.Exit(1)
 	}
 
 	signatureData := &signatures.SignatureData{
@@ -76,20 +70,17 @@ func main() {
 	signature, err := signatures.Sign(dir+"/"+*pathToInstanceKey, signatureData)
 	if err != nil {
 		log.Fatalf(`couldn't perform signature: %s\n`, err)
-		os.Exit(1)
 	}
 
 	// Make sure that the signature ties out with the client certificate.
 	signingCert, err := signatures.Verify(signature, signatureData)
 	if err != nil {
 		log.Fatalf(`couldn't verify signature: %s\n`, err)
-		os.Exit(1)
 	}
 
 	intermediateCert, identityCert, err := util.ExtractCertificates(string(instanceCertBytes))
 	if err != nil {
 		log.Fatalf(`couldn't extract certificates from %s: %s'`, instanceCertBytes, err)
-		os.Exit(1)
 	}
 
 	if err := util.Validate([]string{string(caCertBytes)}, intermediateCert, identityCert, signingCert); err != nil {
@@ -97,5 +88,4 @@ func main() {
 	}
 
 	log.Print("successfully verified that the given certificates and keys are related to each other")
-	os.Exit(0)
 }

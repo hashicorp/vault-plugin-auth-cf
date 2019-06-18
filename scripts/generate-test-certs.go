@@ -21,24 +21,19 @@ func main() {
 	testCerts, err := certificates.Generate(instanceID, orgID, spaceID, appID, ipAddr)
 	if err != nil {
 		log.Fatal(err)
-		os.Exit(1)
 	}
 	wd, err := os.Getwd()
 	if err != nil {
 		log.Fatal(err)
-		os.Exit(1)
 	}
 	if err := moveFile(testCerts.PathToCACertificate, wd+"/testdata/fake-certificates/ca.crt"); err != nil {
 		log.Fatal(err)
-		os.Exit(1)
 	}
 	if err := moveFile(testCerts.PathToInstanceCertificate, wd+"/testdata/fake-certificates/instance.crt"); err != nil {
 		log.Fatal(err)
-		os.Exit(1)
 	}
 	if err := moveFile(testCerts.PathToInstanceKey, wd+"/testdata/fake-certificates/instance.key"); err != nil {
 		log.Fatal(err)
-		os.Exit(1)
 	}
 }
 
