@@ -103,10 +103,10 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 	oldestAllowableSigningTime := timeReceived.Add(-1 * config.LoginMaxSecOld)
 	furthestFutureAllowableSigningTime := timeReceived.Add(config.LoginMaxSecAhead)
 	if signingTime.Before(oldestAllowableSigningTime) {
-		return logical.ErrorResponse(fmt.Sprintf("request is too old; signed at %s but received request at %s; allowable seconds old is %d", signingTime, timeReceived, config.LoginMaxSecOld)), nil
+		return logical.ErrorResponse(fmt.Sprintf("request is too old; signed at %s but received request at %s; allowable seconds old is %d", signingTime, timeReceived, config.LoginMaxSecOld/time.Second)), nil
 	}
 	if signingTime.After(furthestFutureAllowableSigningTime) {
-		return logical.ErrorResponse(fmt.Sprintf("request is too far in the future; signed at %s but received request at %s; allowable seconds in the future is %d", signingTime, timeReceived, config.LoginMaxSecAhead)), nil
+		return logical.ErrorResponse(fmt.Sprintf("request is too far in the future; signed at %s but received request at %s; allowable seconds in the future is %d", signingTime, timeReceived, config.LoginMaxSecAhead/time.Second)), nil
 	}
 
 	intermediateCert, identityCert, err := util.ExtractCertificates(cfInstanceCertContents)
