@@ -199,8 +199,8 @@ func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request,
 			"pcf_api_trusted_certificates": config.PCFAPICertificates,
 			"pcf_api_addr":                 config.PCFAPIAddr,
 			"pcf_username":                 config.PCFUsername,
-			"login_max_seconds_old":        config.LoginMaxSecOld,
-			"login_max_seconds_ahead":      config.LoginMaxSecAhead,
+			"login_max_seconds_old":        config.LoginMaxSecOld / time.Second,
+			"login_max_seconds_ahead":      config.LoginMaxSecAhead / time.Second,
 		},
 	}, nil
 }
