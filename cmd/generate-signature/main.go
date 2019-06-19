@@ -24,8 +24,8 @@ To use it for directly logging into Vault:
 */
 
 import (
-	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"time"
 
@@ -37,29 +37,25 @@ func main() {
 	signingTimeRaw := os.Getenv("SIGNING_TIME")
 	signingTime, err := time.Parse(util.BashTimeFormat, signingTimeRaw)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
-	pathToClientCert := os.Getenv("CF_INSTANCE_CERT")
-	pathToClientKey := os.Getenv("CF_INSTANCE_KEY")
+	pathToInstanceCert := os.Getenv("CF_INSTANCE_CERT")
+	pathToInstanceKey := os.Getenv("CF_INSTANCE_KEY")
 	roleName := os.Getenv("ROLE")
 
-	clientCertBytes, err := ioutil.ReadFile(pathToClientCert)
+	instanceCertBytes, err := ioutil.ReadFile(pathToInstanceCert)
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
-	signature, err := signatures.Sign(pathToClientKey, &signatures.SignatureData{
-		SigningTime: signingTime,
-		Certificate: string(clientCertBytes),
-		Role:        roleName,
+	signature, err := signatures.Sign(pathToInstanceKey, &signatures.SignatureData{
+		SigningTime:            signingTime,
+		CFInstanceCertContents: string(instanceCertBytes),
+		Role:                   roleName,
 	})
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
-	fmt.Println(signature)
-	os.Exit(0)
+	log.Print(signature)
 }

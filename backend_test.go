@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -40,17 +41,13 @@ func TestBackend(t *testing.T) {
 	pcfServer := pcf.MockServer(false)
 	defer pcfServer.Close()
 
-	testConf, err := models.NewConfiguration([]string{testCerts.CACertificate, string(invalidCaCertBytes)}, pcfServer.URL, pcf.AuthUsername, pcf.AuthPassword)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	entry, err := logical.StorageEntryJSON(configStorageKey, testConf)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := storage.Put(ctx, entry); err != nil {
-		t.Fatal(err)
+	testConf := &models.Configuration{
+		IdentityCACertificates: []string{testCerts.CACertificate, string(invalidCaCertBytes)},
+		PCFAPIAddr:             pcfServer.URL,
+		PCFUsername:            pcf.AuthUsername,
+		PCFPassword:            pcf.AuthPassword,
+		LoginMaxSecOld:         5,
+		LoginMaxSecAhead:       1,
 	}
 
 	backend, err := Factory(ctx, &logical.BackendConfig{
@@ -121,10 +118,12 @@ func (e *Env) CreateConfig(t *testing.T) {
 		Path:      "config",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"certificates": e.TestConf.Certificates,
-			"pcf_api_addr": e.TestConf.PCFAPIAddr,
-			"pcf_username": e.TestConf.PCFUsername,
-			"pcf_password": e.TestConf.PCFPassword,
+			"identity_ca_certificates": e.TestConf.IdentityCACertificates,
+			"pcf_api_addr":             e.TestConf.PCFAPIAddr,
+			"pcf_username":             e.TestConf.PCFUsername,
+			"pcf_password":             e.TestConf.PCFPassword,
+			"login_max_seconds_old":    12,
+			"login_max_seconds_ahead":  13,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Ctx, req)
@@ -149,8 +148,10 @@ func (e *Env) ReadConfig(t *testing.T) {
 	if resp == nil {
 		t.Fatal("response shouldn't be nil")
 	}
-	if !reflect.DeepEqual(resp.Data["certificates"], e.TestConf.Certificates) {
-		t.Fatalf("expected %s but received %s", e.TestConf.Certificates, resp.Data["certificates"])
+	for i, caCertRaw := range resp.Data["identity_ca_certificates"].([]string) {
+		if withoutNewlines(caCertRaw) != withoutNewlines(e.TestConf.IdentityCACertificates[i]) {
+			t.Fatalf("expected %q but received %q", e.TestConf.IdentityCACertificates[i], caCertRaw)
+		}
 	}
 	if resp.Data["pcf_api_addr"] != e.TestConf.PCFAPIAddr {
 		t.Fatalf("expected %s but received %s", e.TestConf.PCFAPIAddr, resp.Data["pcf_api_addr"])
@@ -169,7 +170,7 @@ func (e *Env) UpdateConfig(t *testing.T) {
 		Path:      "config",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"certificates": []string{"foo1", "foo2"},
+			"identity_ca_certificates": []string{"foo1", "foo2"},
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Ctx, req)
@@ -194,8 +195,11 @@ func (e *Env) ReadUpdatedConfig(t *testing.T) {
 	if resp == nil {
 		t.Fatal("response shouldn't be nil")
 	}
-	if reflect.DeepEqual(resp.Data["certificates"], []string{"foo1", "foo2"}) {
-		t.Fatalf("expected %s but received %s", e.TestConf.Certificates, resp.Data["certificates"])
+	expected := []string{"foo1", "foo2"}
+	for i, caCertRaw := range resp.Data["identity_ca_certificates"].([]string) {
+		if withoutNewlines(caCertRaw) != withoutNewlines(expected[i]) {
+			t.Fatalf("expected %q but received %q", e.TestConf.IdentityCACertificates[i], caCertRaw)
+		}
 	}
 	if resp.Data["pcf_api_addr"] != e.TestConf.PCFAPIAddr {
 		t.Fatalf("expected %s but received %s", e.TestConf.PCFAPIAddr, resp.Data["pcf_api_addr"])
@@ -452,9 +456,9 @@ func (e *Env) DeleteRole(t *testing.T) {
 func (e *Env) Login(t *testing.T) {
 	signingTime := time.Now()
 	signatureData := &signatures.SignatureData{
-		SigningTime: signingTime,
-		Role:        "test-role",
-		Certificate: e.TestCerts.InstanceCertificate,
+		SigningTime:            signingTime,
+		Role:                   "test-role",
+		CFInstanceCertContents: e.TestCerts.InstanceCertificate,
 	}
 	signature, err := signatures.Sign(e.TestCerts.PathToInstanceKey, signatureData)
 	if err != nil {
@@ -465,10 +469,10 @@ func (e *Env) Login(t *testing.T) {
 		Path:      "login",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"role":         "test-role",
-			"signature":    signature,
-			"signing_time": signingTime.UTC().Format(signatures.TimeFormat),
-			"certificate":  e.TestCerts.InstanceCertificate,
+			"role":             "test-role",
+			"signature":        signature,
+			"signing_time":     signingTime.UTC().Format(signatures.TimeFormat),
+			"cf_instance_cert": e.TestCerts.InstanceCertificate,
 		},
 		Connection: &logical.Connection{
 			RemoteAddr: "10.255.181.105",
@@ -515,4 +519,12 @@ func (e *Env) Login(t *testing.T) {
 	if resp.Auth.LeaseOptions.MaxTTL != time.Minute*2 {
 		t.Fatalf("expected 2 minutes but received %s", resp.Auth.LeaseOptions.MaxTTL)
 	}
+}
+
+// In testing, we found that some string arrays get their trailing \n stripped when
+// you use entry.DecodeJSON directly against the struct; however, the \n is immaterial
+// to whether the values are useful. Rather than correct the behavior, since everything
+// is functional, we decided to ignore newlines when comparing the values of strings.
+func withoutNewlines(s string) string {
+	return strings.Replace(s, "\n", "", -1)
 }

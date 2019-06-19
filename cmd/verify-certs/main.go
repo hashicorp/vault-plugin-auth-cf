@@ -10,12 +10,13 @@ Usage (example is using the tool from the home directory):
 
 import (
 	"flag"
-	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"time"
 
 	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
+	"github.com/hashicorp/vault-plugin-auth-pcf/util"
 )
 
 var (
@@ -25,70 +26,66 @@ var (
 	pathToCACert = flag.String("ca-cert", "", `The path to the issuing CA certificate: '/path/to/ca.crt'`)
 
 	// In a PCF environment, this will be the value for the environment variable of "CF_INSTANCE_CERT".
-	pathToClientCert = flag.String("instance-cert", "", `The path to the client certificate: '/path/to/instance.crt'`)
+	pathToInstanceCert = flag.String("instance-cert", "", `The path to the client certificate: '/path/to/instance.crt'`)
 
 	// In a PCF environment, this will be the value for the environment variable of "CF_INSTANCE_KEY".
-	pathToClientKey = flag.String("instance-key", "", `The path to the client's private key: '/path/to/instance.key'`)
+	pathToInstanceKey = flag.String("instance-key", "", `The path to the client's private key: '/path/to/instance.key'`)
 )
 
 func main() {
 	flag.Parse()
 
 	if pathToCACert == nil || *pathToCACert == "" {
-		fmt.Println(`"ca-cert" is required`)
-		os.Exit(1)
+		log.Fatal(`"ca-cert" is required`)
 	}
-	if pathToClientCert == nil || *pathToClientCert == "" {
-		fmt.Println(`"client-cert" is required`)
-		os.Exit(1)
+	if pathToInstanceCert == nil || *pathToInstanceCert == "" {
+		log.Fatal(`"instance-cert" is required`)
 	}
-	if pathToClientKey == nil || *pathToClientKey == "" {
-		fmt.Println(`"client-key" is required`)
-		os.Exit(1)
+	if pathToInstanceKey == nil || *pathToInstanceKey == "" {
+		log.Fatal(`"instance-key" is required`)
 	}
 
 	dir, err := os.Getwd()
 	if err != nil {
-		fmt.Printf("couldn't get working directory: %s\n", err)
-		os.Exit(1)
+		log.Fatalf("couldn't get working directory: %s\n", err)
 	}
 
-	clientCertBytes, err := ioutil.ReadFile(*pathToClientCert)
+	caCertBytes, err := ioutil.ReadFile(*pathToCACert)
 	if err != nil {
-		fmt.Printf("couldn't read %s: %s\n", *pathToClientCert, err)
-		os.Exit(1)
+		log.Fatalf("couldn't read %s: %s\n", *pathToCACert, err)
+	}
+
+	instanceCertBytes, err := ioutil.ReadFile(*pathToInstanceCert)
+	if err != nil {
+		log.Fatalf("couldn't read %s: %s\n", *pathToInstanceCert, err)
 	}
 
 	signatureData := &signatures.SignatureData{
-		SigningTime: time.Now(),
-		Certificate: string(clientCertBytes),
-		Role:        "test-role",
+		SigningTime:            time.Now(),
+		CFInstanceCertContents: string(instanceCertBytes),
+		Role:                   "test-role",
 	}
 
 	// Create a signature.
-	signature, err := signatures.Sign(dir+"/"+*pathToClientKey, signatureData)
+	signature, err := signatures.Sign(dir+"/"+*pathToInstanceKey, signatureData)
 	if err != nil {
-		fmt.Printf(`couldn't perform signature: %s\n`, err)
-		os.Exit(1)
+		log.Fatalf(`couldn't perform signature: %s\n`, err)
 	}
 
 	// Make sure that the signature ties out with the client certificate.
-	clientCert, err := signatures.Verify(signature, signatureData)
+	signingCert, err := signatures.Verify(signature, signatureData)
 	if err != nil {
-		fmt.Printf(`couldn't verify signature: %s\n`, err)
-		os.Exit(1)
+		log.Fatalf(`couldn't verify signature: %s\n`, err)
 	}
 
-	// Make sure the client certificate was issued by the given CA.
-	isIssuer, err := signatures.IsIssuer(dir+"/"+*pathToCACert, clientCert)
+	intermediateCert, identityCert, err := util.ExtractCertificates(string(instanceCertBytes))
 	if err != nil {
-		fmt.Printf(`couldn't confirm issuing CA: %s\n`, err)
-		os.Exit(1)
+		log.Fatalf(`couldn't extract certificates from %s: %s'`, instanceCertBytes, err)
 	}
-	if !isIssuer {
-		fmt.Println("client certificate wasn't issued by this CA")
-		os.Exit(1)
+
+	if err := util.Validate([]string{string(caCertBytes)}, intermediateCert, identityCert, signingCert); err != nil {
+		log.Fatalf(`couldn't validate cert chain: %s'`, err)
 	}
-	fmt.Println("successfully verified that the given certificates and keys are related to each other")
-	os.Exit(0)
+
+	log.Print("successfully verified that the given certificates and keys are related to each other")
 }

@@ -61,8 +61,8 @@ func handleLogin(t *testing.T, testCerts *certificates.TestCertificates) func(w 
 		if body["role"] != "test-role" {
 			t.Fatalf(`expected %q but received %q`, "test-role", body["role"])
 		}
-		if body["certificate"] != testCerts.InstanceCertificate {
-			t.Fatalf(`expected %q but received %q`, testCerts.InstanceCertificate, body["certificate"])
+		if body["cf_instance_cert"] != testCerts.InstanceCertificate {
+			t.Fatalf(`expected %q but received %q`, testCerts.InstanceCertificate, body["cf_instance_cert"])
 		}
 		signingTime, err := time.Parse(signatures.TimeFormat, body["signing_time"])
 		if err != nil {
@@ -79,9 +79,9 @@ func handleLogin(t *testing.T, testCerts *certificates.TestCertificates) func(w 
 		}
 
 		signatureData := &signatures.SignatureData{
-			SigningTime: signingTime,
-			Role:        body["role"],
-			Certificate: body["certificate"],
+			SigningTime:            signingTime,
+			Role:                   body["role"],
+			CFInstanceCertContents: body["cf_instance_cert"],
 		}
 		// Validate that we can verify the signature that was sent.
 		cert, err := signatures.Verify(body["signature"], signatureData)
