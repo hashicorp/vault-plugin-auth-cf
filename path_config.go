@@ -19,52 +19,51 @@ func (b *backend) pathConfig() *framework.Path {
 		Pattern: "config",
 		Fields: map[string]*framework.FieldSchema{
 			"identity_ca_certificates": {
-				Required:     true,
-				Type:         framework.TypeStringSlice,
+				Required: true,
+				Type:     framework.TypeStringSlice,
 				DisplayAttrs: &framework.DisplayAttributes{
 					Name:  "Identity CA Certificates",
 					Value: `-----BEGIN CERTIFICATE----- ... -----END CERTIFICATE-----`,
 				},
-				Description:  "The PEM-format CA certificates that are required to have issued the instance certificates presented for logging in.",
+				Description: "The PEM-format CA certificates that are required to have issued the instance certificates presented for logging in.",
 			},
 			"pcf_api_trusted_certificates": {
-				Type:         framework.TypeStringSlice,
+				Type: framework.TypeStringSlice,
 				DisplayAttrs: &framework.DisplayAttributes{
 					Name:  "PCF API Trusted IdentityCACertificates",
 					Value: `-----BEGIN CERTIFICATE----- ... -----END CERTIFICATE-----`,
 				},
-				Description:  "The PEM-format CA certificates that are acceptable for the PCF API to present.",
+				Description: "The PEM-format CA certificates that are acceptable for the PCF API to present.",
 			},
 			"pcf_api_addr": {
-				Required:     true,
-				Type:         framework.TypeString,
+				Required: true,
+				Type:     framework.TypeString,
 				DisplayAttrs: &framework.DisplayAttributes{
 					Name:  "PCF API Address",
 					Value: "https://api.10.244.0.34.xip.io",
 				},
-				Description:  "PCF’s API address.",
+				Description: "PCF’s API address.",
 			},
 			"pcf_username": {
-				Required:     true,
-				Type:         framework.TypeString,
+				Required: true,
+				Type:     framework.TypeString,
 				DisplayAttrs: &framework.DisplayAttributes{
 					Name:  "PCF API Username",
 					Value: "admin",
 				},
-				Description:  "The username for PCF’s API.",
+				Description: "The username for PCF’s API.",
 			},
 			"pcf_password": {
-				Required:         true,
-				Type:             framework.TypeString,
-				Type:         framework.TypeString,
+				Required: true,
+				Type:     framework.TypeString,
 				DisplayAttrs: &framework.DisplayAttributes{
-					Name:  "PCF API Password",
+					Name:      "PCF API Password",
 					Sensitive: true,
 				},
-				Description:      "The password for PCF’s API.",
+				Description: "The password for PCF’s API.",
 			},
 			"login_max_seconds_old": {
-				Type:         framework.TypeDurationSecond,
+				Type: framework.TypeDurationSecond,
 				DisplayAttrs: &framework.DisplayAttributes{
 					Name:  "Login Max Seconds Old",
 					Value: "300",
@@ -74,7 +73,7 @@ Set low to reduce the opportunity for replay attacks.`,
 				Default: 300,
 			},
 			"login_max_seconds_ahead": {
-				Type:         framework.TypeInt,
+				Type: framework.TypeInt,
 				DisplayAttrs: &framework.DisplayAttributes{
 					Name:  "Login Max Seconds Ahead",
 					Value: "60",
