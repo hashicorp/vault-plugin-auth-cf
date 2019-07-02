@@ -375,6 +375,10 @@ func (e *Env) ReadRole(t *testing.T) {
 	if resp == nil {
 		t.Fatal("response shouldn't be nil")
 	}
+
+	// Convert token_type since in JSON it needs to be the corresponding uint
+	resp.Data["token_type"] = logical.TokenTypeDefault
+
 	// To reuse the logic above, convert this into a role.
 	b, err := json.Marshal(resp.Data)
 	if err != nil {
