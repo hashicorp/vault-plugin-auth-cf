@@ -80,6 +80,19 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		return logical.ErrorResponse("'role-name' is required"), nil
 	}
 
+	// Ensure the pcf certificate meets the role's constraints.
+	role, err := getRole(ctx, req.Storage, roleName)
+	if err != nil {
+		return nil, err
+	}
+	if role == nil {
+		return nil, errors.New("no matching role")
+	}
+
+	if !cidrutil.RemoteAddrIsOk(req.Connection.RemoteAddr, role.TokenBoundCIDRs) {
+		return nil, logical.ErrPermissionDenied
+	}
+
 	signature := data.Get("signature").(string)
 	if signature == "" {
 		return logical.ErrorResponse("'signature' is required"), nil
@@ -149,15 +162,6 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 	// audit logs.
 	if b.Logger().IsDebug() {
 		b.Logger().Debug(fmt.Sprintf("handling login attempt from %+v", pcfCert))
-	}
-
-	// Ensure the pcf certificate meets the role's constraints.
-	role, err := getRole(ctx, req.Storage, roleName)
-	if err != nil {
-		return nil, err
-	}
-	if role == nil {
-		return nil, errors.New("no matching role")
 	}
 
 	if err := b.validate(config, role, pcfCert, req.Connection.RemoteAddr); err != nil {
@@ -267,10 +271,6 @@ func (b *backend) validate(config *models.Configuration, role *models.RoleEntry,
 	if !meetsBoundConstraints(pcfCert.SpaceID, role.BoundSpaceIDs) {
 		return fmt.Errorf("space ID %s doesn't match role constraints of %s", pcfCert.SpaceID, role.BoundSpaceIDs)
 	}
-	if !cidrutil.RemoteAddrIsOk(reqConnRemoteAddr, role.TokenBoundCIDRs) {
-		return fmt.Errorf("remote address %s doesn't match role constraints of %s", reqConnRemoteAddr, role.BoundCIDRs)
-	}
-
 	// Use the PCF API to ensure everything still exists and to verify whatever we can.
 	client, err := util.NewPCFClient(config)
 	if err != nil {
