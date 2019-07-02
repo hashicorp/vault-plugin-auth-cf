@@ -382,6 +382,7 @@ func (e *Env) ReadRole(t *testing.T) {
 	}
 	role := &models.RoleEntry{}
 	if err := json.Unmarshal(b, role); err != nil {
+		//t.Fatal(pretty.Sprint(string(b)))
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(e.TestRole.BoundAppIDs, role.BoundAppIDs) {
