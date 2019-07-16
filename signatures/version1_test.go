@@ -16,8 +16,8 @@ func TestWithLance(t *testing.T) {
 		t.Fatal(err)
 	}
 	sigData := &SignatureData{
-		SigningTime:            tm,
-		Role:                   "spring",
+		SigningTime: tm,
+		Role:        "spring",
 		CFInstanceCertContents: `-----BEGIN CERTIFICATE-----
 MIIEmTCCAwGgAwIBAgIRAK0auU1vLEtWXl4C4ejjQAUwDQYJKoZIhvcNAQELBQAw
 QzEMMAoGA1UEBhMDVVNBMRYwFAYDVQQKEw1DbG91ZCBGb3VuZHJ5MRswGQYDVQQD
