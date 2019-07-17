@@ -491,6 +491,26 @@ GVg5_uez-Z0544pgkVSd6vQztHO_j6X3LZ2PqhUv_Uh0iMfoT-U2MKgdjOSrkpVpINsFqxKk4_-p2nHl
 
 This signature should be placed in the `signature` field of login requests.
 
+If you implement the algorithm above and still encounter errors logging in,
+it may help to generate test certificates using the `make-test-certs` tool.
+These certificates are accurate enough mocks of real PCF certificates, and 
+are used for testing. Using this tool to generate your test certificates will
+rule out any error with the certificates you may have created yourself.
+
+To use this tool, from this project's home directory:
+```
+cd cmd/make-test-certs
+go build
+./make-test-certs
+```
+
+This will provide output like:
+```
+path to CA cert to configure in Vault: /tmp/81701307-8293-71dc-4ffe-d5391d24b1f7741766180
+path to cert to use as CF_INSTANCE_CERT: /tmp/baf26e25-896e-3e5e-f38d-30e5ef1e97d5065686323
+path to key to use as CF_INSTANCE_KEY: /tmp/5c08f79d-b2a5-c211-2862-00fe0a3b647d601276662
+```
+
 ### Quick Start
 
 ```

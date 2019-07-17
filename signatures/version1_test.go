@@ -2,12 +2,12 @@ package signatures
 
 import (
 	"fmt"
-	"github.com/hashicorp/vault-plugin-auth-pcf/util"
 	"io/ioutil"
 	"testing"
 	"time"
 
 	"github.com/hashicorp/vault-plugin-auth-pcf/testing/certificates"
+	"github.com/hashicorp/vault-plugin-auth-pcf/util"
 )
 
 func TestSignVerifyIssuedByFakes(t *testing.T) {
