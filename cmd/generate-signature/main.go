@@ -30,12 +30,11 @@ import (
 	"time"
 
 	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
-	"github.com/hashicorp/vault-plugin-auth-pcf/util"
 )
 
 func main() {
 	signingTimeRaw := os.Getenv("SIGNING_TIME")
-	signingTime, err := time.Parse(util.BashTimeFormat, signingTimeRaw)
+	signingTime, err := time.Parse(signatures.TimeFormat, signingTimeRaw)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -58,4 +57,13 @@ func main() {
 		log.Fatal(err)
 	}
 	log.Print(signature)
+
+	sigData := &signatures.SignatureData{
+		SigningTime:            signingTime,
+		Role:                   roleName,
+		CFInstanceCertContents: string(instanceCertBytes),
+	}
+	if _, err := signatures.Verify(signature, sigData); err != nil {
+		log.Fatal(err)
+	}
 }
