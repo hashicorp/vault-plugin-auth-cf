@@ -482,7 +482,7 @@ which can be verified by entering the same string into
 
 Use the private key at `CF_INSTANCE_KEY` to sign the resulting sha
 using the [RSASSA-PSS](https://tools.ietf.org/html/rfc4056) algorithm 
-with a SHA256 hash and a salt length of 222. Random material is injected 
+with a SHA256 hash and a salt length of 20. Random material is injected 
 into this algorithm so the resulting string will be different each time, 
 but here is one example result so you can compare yours to its format:
 ```
@@ -504,6 +504,11 @@ path to CA cert to configure in Vault: /tmp/81701307-8293-71dc-4ffe-d5391d24b1f7
 path to cert to use as CF_INSTANCE_CERT: /tmp/baf26e25-896e-3e5e-f38d-30e5ef1e97d5065686323
 path to key to use as CF_INSTANCE_KEY: /tmp/5c08f79d-b2a5-c211-2862-00fe0a3b647d601276662
 ```
+
+A different example of the approach to signing can be found 
+[here](https://mhmxs.blogspot.com/2018/03/how-to-sign-messages-in-java-and-verify.html),
+a post showing how to sign in Java and verify in Go. The Go code in the example 
+was the basis for the code within this plugin.
 
 ### Quick Start
 
