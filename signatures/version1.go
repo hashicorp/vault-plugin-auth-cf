@@ -56,13 +56,13 @@ func Sign(pathToPrivateKey string, signatureData *SignatureData) (string, error)
 	if block == nil {
 		return "", fmt.Errorf("unable to decode RSA private key from %s", keyBytes)
 	}
-	rsaPrivateKey, err := x509.ParsePKCS1PrivateKey(block.Bytes)
+	pk, err := x509.ParsePKCS1PrivateKey(block.Bytes)
 	if err != nil {
 		return "", err
 	}
 
-	// This resolves to using a saltLength of 222.
-	signatureBytes, err := rsa.SignPSS(rand.Reader, rsaPrivateKey, crypto.SHA256, signatureData.hash(), nil)
+	opts := &rsa.PSSOptions{SaltLength: 20}
+	signatureBytes, err := rsa.SignPSS(rand.Reader, pk, crypto.SHA256, signatureData.hash(), opts)
 	if err != nil {
 		return "", err
 	}
@@ -104,7 +104,8 @@ func Verify(signature string, signatureData *SignatureData) (*x509.Certificate, 
 				result = multierror.Append(result, fmt.Errorf("not an rsa public key, it's a %t", instanceCert.PublicKey))
 				continue
 			}
-			if err := rsa.VerifyPSS(publicKey, crypto.SHA256, signatureData.hash(), signatureBytes, nil); err != nil {
+			opts := &rsa.PSSOptions{SaltLength: 20}
+			if err := rsa.VerifyPSS(publicKey, crypto.SHA256, signatureData.hash(), signatureBytes, opts); err != nil {
 				result = multierror.Append(result, err)
 				continue
 			}
