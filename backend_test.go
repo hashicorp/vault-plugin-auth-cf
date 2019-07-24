@@ -118,12 +118,12 @@ func (e *Env) CreateConfig(t *testing.T) {
 		Path:      "config",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"identity_ca_certificates": e.TestConf.IdentityCACertificates,
-			"pcf_api_addr":             e.TestConf.PCFAPIAddr,
-			"pcf_username":             e.TestConf.PCFUsername,
-			"pcf_password":             e.TestConf.PCFPassword,
-			"login_max_seconds_old":    12,
-			"login_max_seconds_ahead":  13,
+			"identity_ca_certificates":     e.TestConf.IdentityCACertificates,
+			"pcf_api_addr":                 e.TestConf.PCFAPIAddr,
+			"pcf_username":                 e.TestConf.PCFUsername,
+			"pcf_password":                 e.TestConf.PCFPassword,
+			"login_max_seconds_not_before": 12,
+			"login_max_seconds_not_after":  13,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Ctx, req)
