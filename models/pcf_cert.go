@@ -91,7 +91,7 @@ func (c *PCFCertificate) validate() error {
 	if c.SpaceID == "" {
 		return errors.New("no space ID on given certificate")
 	}
-	if c.IPAddress.IsUnspecified() {
+	if c.IPAddress == nil || c.IPAddress.IsUnspecified() {
 		return errors.New("ip address is unspecified")
 	}
 	return nil
