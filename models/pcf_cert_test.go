@@ -125,8 +125,8 @@ func TestNewPcfCertificateFromx509(t *testing.T) {
 	if pcfCert.OrgID != "34a878d0-c2f9-4521-ba73-a9f664e82c7b" {
 		t.Fatalf("expected %s but received %s", "34a878d0-c2f9-4521-ba73-a9f664e82c7b", pcfCert.OrgID)
 	}
-	if pcfCert.IPAddress.String() != "10.255.181.105" {
-		t.Fatalf("expected %s but received %s", "10.255.181.105", pcfCert.IPAddress.String())
+	if pcfCert.IPAddress != "10.255.181.105" {
+		t.Fatalf("expected %s but received %s", "10.255.181.105", pcfCert.IPAddress)
 	}
 }
 
@@ -147,7 +147,7 @@ func TestNewPCFCertificate(t *testing.T) {
 	if pcfCert.OrgID != "34a878d0-c2f9-4521-ba73-a9f664e82c7b" {
 		t.Fatalf("expected %s but received %s", "34a878d0-c2f9-4521-ba73-a9f664e82c7b", pcfCert.OrgID)
 	}
-	if pcfCert.IPAddress.String() != "10.255.181.105" {
-		t.Fatalf("expected %s but received %s", "10.255.181.105", pcfCert.IPAddress.String())
+	if pcfCert.IPAddress != "10.255.181.105" {
+		t.Fatalf("expected %s but received %s", "10.255.181.105", pcfCert.IPAddress)
 	}
 }

@@ -179,7 +179,7 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		InternalData: map[string]interface{}{
 			"role":        roleName,
 			"instance_id": pcfCert.InstanceID,
-			"ip_address":  pcfCert.IPAddress.String(),
+			"ip_address":  pcfCert.IPAddress,
 		},
 		DisplayName: pcfCert.InstanceID,
 		Alias: &logical.Alias{
@@ -261,7 +261,7 @@ func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data
 
 func (b *backend) validate(config *models.Configuration, role *models.RoleEntry, pcfCert *models.PCFCertificate, reqConnRemoteAddr string) error {
 	if !role.DisableIPMatching {
-		if !matchesIPAddress(reqConnRemoteAddr, pcfCert.IPAddress) {
+		if !matchesIPAddress(reqConnRemoteAddr, net.ParseIP(pcfCert.IPAddress)) {
 			return errors.New("no matching IP address")
 		}
 	}

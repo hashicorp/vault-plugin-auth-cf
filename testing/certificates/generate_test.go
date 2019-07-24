@@ -64,7 +64,7 @@ func TestGenerate(t *testing.T) {
 	if pcfCert.AppID != "app-id" {
 		t.Fatalf("expected app-id but received %q", pcfCert.AppID)
 	}
-	if pcfCert.IPAddress.String() != "10.255.181.105" {
-		t.Fatalf("expected 10.255.181.105 but received %q", pcfCert.IPAddress.String())
+	if pcfCert.IPAddress != "10.255.181.105" {
+		t.Fatalf("expected 10.255.181.105 but received %q", pcfCert.IPAddress)
 	}
 }
