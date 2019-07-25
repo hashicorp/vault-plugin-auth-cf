@@ -46,8 +46,8 @@ func TestBackend(t *testing.T) {
 		PCFAPIAddr:             pcfServer.URL,
 		PCFUsername:            pcf.AuthUsername,
 		PCFPassword:            pcf.AuthPassword,
-		LoginMaxSecOld:         5,
-		LoginMaxSecAhead:       1,
+		LoginMaxSecNotBefore:   5,
+		LoginMaxSecNotAfter:    1,
 	}
 
 	backend, err := Factory(ctx, &logical.BackendConfig{

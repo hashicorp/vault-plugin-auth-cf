@@ -510,49 +510,34 @@ path to key to use as CF_INSTANCE_KEY: /tmp/5c08f79d-b2a5-c211-2862-00fe0a3b647d
 - [Java](https://github.com/tyrannosaurus-becks/vault-tools-auth-pcf)
 - Python:
 ```
+## PCF signature creation example in Python using the [Cryptography](https://cryptography.io) library
 import base64
-​
 from cryptography.hazmat.backends import default_backend
-from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
-​
-​
-# Sample data from generate-signature tool
-sign_time = "2019-07-23T18:15:30Z"
-role = "test-role"
-signature = base64.urlsafe_b64decode("XTuL0N5uVSiGaJijuR6G5-Kzw1gCI6mcGNI9DcRx3mKsuivhNvmZKrIr62ASLnXJSQP3FgybZD7z-WLMqjzmBXrK6kkCpibp2s4rbxXPSK1dTbgAt3kNC0XwFmLtsfsg6eZWCVVrNVX6LqdsmY_KYF2Pf3uG4jPAALkV4cSPwufZbd4OYi-kyLVBnbJDPK8xEJR95ZHxgRfBG2grdBsI6wanSFUC2Agi1NV8-BtU_7pNRHyJ1a_ssBGqEP447Kl9CudXYzJdkLp54x4543Nq0Eio6B8soIQuYQWinesNX4iW57eZktCWPE5fwfi8ttormnMPwxVyGC8QAjXZhbv3og==")
-​
-​
+
 # Build message by concatenating signing time, cert and role
-message = bytes(sign_time, 'utf-8')
+message = bytes("2019-07-23T18:15:30Z", 'utf-8')
 with open("instance.crt", mode='rb') as file:
     message += file.read()
-message +=bytes(role, 'utf-8')
-​
+message += bytes("test-role", 'utf-8')
 
-# Load public key
+# Load private key
 with open("instance.key", "rb") as key_file:
     private_key = serialization.load_pem_private_key(
         key_file.read(),
         password=None,
         backend=default_backend()
     )
-​
-public_key = private_key.public_key()
-​
-# Verify message signature. This will raise an exception if the verification fails.
-public_key.verify(
-    signature,
+
+# Sign the message and convert to base64
+signature = private_key.sign(
     message,
-    padding.PSS(
-        mgf=padding.MGF1(hashes.SHA256()),
-        salt_length=222
-    ),
+    padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=20),
     hashes.SHA256(),
 )
-​
-print("Signature Verified!")
+
+print(base64.urlsafe_b64encode(signature))
 ```
 
 ### Quick Start
