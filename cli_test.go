@@ -93,7 +93,7 @@ func handleLogin(t *testing.T, testCerts *certificates.TestCertificates) func(w 
 		if err != nil {
 			t.Fatal(err)
 		}
-		if pcfCert.IPAddress.String() != testIPAddress {
+		if pcfCert.IPAddress != testIPAddress {
 			t.Fatalf(`expected %q but received %q`, testIPAddress, pcfCert.IPAddress)
 		}
 		if pcfCert.AppID != testAppID {
