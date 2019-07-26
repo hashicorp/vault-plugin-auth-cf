@@ -248,7 +248,7 @@ This plugin was tested with Org Manager level permissions, but lower level permi
 $ cf create-user vault pa55word
 $ cf orgs
 $ cf org-users my-example-org
-$ cf set-org-role Alice my-example-org OrgManager
+$ cf set-org-role vault my-example-org OrgManager
 ```
 
 Since the PCF API tends to use a self-signed certificate, you'll also need to configure
