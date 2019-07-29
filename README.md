@@ -290,7 +290,7 @@ identity CA certificate you pulled above.
 
 ```
 $ vault write auth/pcf/config \
-      certificates=@ca.crt \
+      identity_ca_certificates=@ca.crt \
       pcf_api_addr=https://api.sys.lagunaniguel.cf-app.com \
       pcf_username=vault \
       pcf_password=pa55word \
