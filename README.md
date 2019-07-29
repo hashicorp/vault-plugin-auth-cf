@@ -302,6 +302,16 @@ Then, add a role that will be used to grant specific Vault policies to those log
 application IDs. However, if `bound_application_ids` is omitted, then _any_ application ID will match. We recommend
 configuring as many bound parameters as possible.
 
+The `bound_application_ids`, `bound_space_ids`, and `bound_organization_ids` that are tied to a particular application
+can be found by looking at the `instance.crt` using the following command:
+
+```
+$ openssl crl2pkcs7 -nocrl -certfile instance.crt | openssl pkcs7 -print_certs -text -noout
+...
+        Subject: OU=organization:bc3874b4-002b-4548-ab27-f9bd38450651, OU=space:dd84618a-16f2-4dee-9936-04181acb6cc0, OU=app:b7b5a288-afa9-4022-802f-173ad94ebb02, CN=a9cff876-58f9-4247-67a6-62f2
+...
+```
+
 Also, by default, the IP address on the certificate presented at login must match that of the caller. However, if
 your callers tend to be proxied, this may not work for you. If that's the case, set `disable_ip_matching` to true.
 ```
