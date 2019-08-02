@@ -3,6 +3,16 @@
 This plugin leverages PCF's [App and Container Identity Assurance](https://content.pivotal.io/blog/new-in-pcf-2-1-app-container-identity-assurance-via-automatic-cert-rotation)
 for authenticating to Vault. 
 
+## Official Documentation
+
+This plugin's docs reside in the following places:
+
+- [Overview](https://www.vaultproject.io/docs/auth/pcf.html)
+- [API](https://www.vaultproject.io/api/auth/pcf/index.html)
+
+The documentation below is intended to further elaborate, and is targeted at those developing, using,
+troubleshooting, and maintaining this plugin.
+
 ## Known Risks
 
 This authentication engine uses PCF's instance identity service to authenticate users to Vault. Because PCF
