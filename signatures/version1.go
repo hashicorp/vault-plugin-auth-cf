@@ -28,11 +28,6 @@ type SignatureData struct {
 	// identity certificate itself, and the second one is the intermediate
 	// certificate that issued it.
 	CFInstanceCertContents string
-
-	// Version history:
-	// - Version 0 (or an unset version) indicates the signature should use base64.URLEncoding.
-	// - Version 1 indicates the signature should use base64.StdEncoding.
-	Version int
 }
 
 func (s *SignatureData) hash() []byte {
@@ -71,15 +66,7 @@ func Sign(pathToPrivateKey string, signatureData *SignatureData) (string, error)
 	if err != nil {
 		return "", err
 	}
-
-	switch signatureData.Version {
-	case 0:
-		return base64.URLEncoding.EncodeToString(signatureBytes), nil
-	case 1:
-		return base64.StdEncoding.EncodeToString(signatureBytes), nil
-	default:
-		return "", fmt.Errorf("unsupported signature version %d received", signatureData.Version)
-	}
+	return base64.URLEncoding.EncodeToString(signatureBytes), nil
 }
 
 // Verify ensures that a given signature was created by a private key
@@ -92,21 +79,12 @@ func Verify(signature string, signatureData *SignatureData) (*x509.Certificate, 
 		return nil, errors.New("signatureData must be provided")
 	}
 
-	var signatureBytes []byte
-	var err error
-	switch signatureData.Version {
-	case 0:
-		signatureBytes, err = base64.URLEncoding.DecodeString(signature)
-	case 1:
-		signatureBytes, err = base64.StdEncoding.DecodeString(signature)
-	default:
-		return nil, fmt.Errorf("unsupported signature version %d received", signatureData.Version)
-	}
+	// Use the CA certificate to verify the signature we've received.
+	signatureBytes, err := base64.URLEncoding.DecodeString(signature)
 	if err != nil {
 		return nil, err
 	}
 
-	// Use the CA certificate to verify the signature we've received.
 	cfInstanceCertContentsBytes := []byte(signatureData.CFInstanceCertContents)
 	var block *pem.Block
 	var result error

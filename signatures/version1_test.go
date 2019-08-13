@@ -10,7 +10,7 @@ import (
 	"github.com/hashicorp/vault-plugin-auth-pcf/util"
 )
 
-func TestSignVerifyIssuedByFakesSigV0(t *testing.T) {
+func TestSignVerifyIssuedByFakes(t *testing.T) {
 	testCerts, err := certificates.Generate("doesn't", "really", "matter", "here", "10.255.181.105")
 	if err != nil {
 		t.Fatal(err)
@@ -25,44 +25,6 @@ func TestSignVerifyIssuedByFakesSigV0(t *testing.T) {
 		SigningTime:            time.Now(),
 		Role:                   "my-role",
 		CFInstanceCertContents: testCerts.InstanceCertificate,
-	}
-
-	signature, err := Sign(testCerts.PathToInstanceKey, signatureData)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	signingCert, err := Verify(signature, signatureData)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	intermediateCert, identityCert, err := util.ExtractCertificates(testCerts.InstanceCertificate)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := util.Validate([]string{testCerts.CACertificate}, intermediateCert, identityCert, signingCert); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func TestSignVerifyIssuedByFakesSigV1(t *testing.T) {
-	testCerts, err := certificates.Generate("doesn't", "really", "matter", "here", "10.255.181.105")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := testCerts.Close(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	signatureData := &SignatureData{
-		SigningTime:            time.Now(),
-		Role:                   "my-role",
-		CFInstanceCertContents: testCerts.InstanceCertificate,
-		Version:                1,
 	}
 
 	signature, err := Sign(testCerts.PathToInstanceKey, signatureData)

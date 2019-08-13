@@ -99,8 +99,7 @@ func TestBackend(t *testing.T) {
 	// Actually perform the flow needed to log in.
 	t.Run("create config", env.CreateConfig)
 	t.Run("create role", env.CreateRole)
-	t.Run("login", env.LoginSigV0)
-	t.Run("login", env.LoginSigV1)
+	t.Run("login", env.Login)
 }
 
 type Env struct {
@@ -458,7 +457,7 @@ func (e *Env) DeleteRole(t *testing.T) {
 	}
 }
 
-func (e *Env) LoginSigV0(t *testing.T) {
+func (e *Env) Login(t *testing.T) {
 	signingTime := time.Now()
 	signatureData := &signatures.SignatureData{
 		SigningTime:            signingTime,
@@ -478,76 +477,6 @@ func (e *Env) LoginSigV0(t *testing.T) {
 			"signature":        signature,
 			"signing_time":     signingTime.UTC().Format(signatures.TimeFormat),
 			"cf_instance_cert": e.TestCerts.InstanceCertificate,
-		},
-		Connection: &logical.Connection{
-			RemoteAddr: "10.255.181.105",
-		},
-	}
-	resp, err := e.Backend.HandleRequest(e.Ctx, req)
-	if err != nil || (resp != nil && resp.IsError()) {
-		t.Fatalf("bad: resp: %#v\nerr:%v", resp, err)
-	}
-
-	if resp.Auth.DisplayName != pcf.FoundServiceGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundServiceGUID, resp.Auth.DisplayName)
-	}
-	if len(resp.Auth.Policies) != 2 {
-		t.Fatalf("expected 2 policies but received %d", len(resp.Auth.Policies))
-	}
-	if resp.Auth.InternalData["role"] != "test-role" {
-		t.Fatalf("expected %s but received %s", "test-role", resp.Auth.InternalData["role"])
-	}
-	if resp.Auth.InternalData["instance_id"] != pcf.FoundServiceGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundServiceGUID, resp.Auth.InternalData["instance_id"])
-	}
-	if resp.Auth.Alias.Metadata["org_id"] != pcf.FoundOrgGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundOrgGUID, resp.Auth.Alias.Metadata["org_id"])
-	}
-	if resp.Auth.Alias.Metadata["app_id"] != pcf.FoundAppGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundAppGUID, resp.Auth.Alias.Metadata["app_id"])
-	}
-	if resp.Auth.Alias.Metadata["space_id"] != pcf.FoundSpaceGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundSpaceGUID, resp.Auth.Alias.Metadata["space_id"])
-	}
-	if resp.Auth.InternalData["ip_addresses"] != nil {
-		t.Fatalf("expected %s but received %s", "", resp.Auth.InternalData["ip_addresses"])
-	}
-	if resp.Auth.Alias.Name != pcf.FoundAppGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundServiceGUID, resp.Auth.Alias.Name)
-	}
-	if !resp.Auth.LeaseOptions.Renewable {
-		t.Fatal("expected lease to be renewable")
-	}
-	if resp.Auth.LeaseOptions.TTL != time.Minute {
-		t.Fatalf("expected a minute but received %s", e.TestRole.TTL)
-	}
-	if resp.Auth.LeaseOptions.MaxTTL != time.Minute*2 {
-		t.Fatalf("expected 2 minutes but received %s", resp.Auth.LeaseOptions.MaxTTL)
-	}
-}
-
-func (e *Env) LoginSigV1(t *testing.T) {
-	signingTime := time.Now()
-	signatureData := &signatures.SignatureData{
-		SigningTime:            signingTime,
-		Role:                   "test-role",
-		CFInstanceCertContents: e.TestCerts.InstanceCertificate,
-		Version:                1,
-	}
-	signature, err := signatures.Sign(e.TestCerts.PathToInstanceKey, signatureData)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req := &logical.Request{
-		Operation: logical.UpdateOperation,
-		Path:      "login",
-		Storage:   e.Storage,
-		Data: map[string]interface{}{
-			"role":              "test-role",
-			"signature":         signature,
-			"signing_time":      signingTime.UTC().Format(signatures.TimeFormat),
-			"cf_instance_cert":  e.TestCerts.InstanceCertificate,
-			"signature_version": 1,
 		},
 		Connection: &logical.Connection{
 			RemoteAddr: "10.255.181.105",
