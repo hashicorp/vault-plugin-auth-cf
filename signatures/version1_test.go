@@ -1,6 +1,7 @@
 package signatures
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"testing"
@@ -63,21 +64,34 @@ func TestSignVerifyIssuedByReal(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	signingCert, err := Verify(signature, signatureData)
-	if err != nil {
-		t.Fatal(err)
-	}
+	for _, checkURLSafeSig := range []bool{false, true} {
+		// Re-encode using old style URL-safe base64 as a compatibility check
+		if checkURLSafeSig {
+			// strip off "v1:" and decode
+			sig, err := base64.StdEncoding.DecodeString(signature[3:])
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	caCertBytes, err := ioutil.ReadFile("../testdata/real-certificates/ca.crt")
-	if err != nil {
-		t.Fatal(err)
-	}
-	intermediateCert, identityCert, err := util.ExtractCertificates(string(certBytes))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := util.Validate([]string{string(caCertBytes)}, intermediateCert, identityCert, signingCert); err == nil {
-		t.Fatal(`expected error: x509: certificate has expired or is not yet valid`)
+			signature = base64.URLEncoding.EncodeToString(sig)
+		}
+
+		signingCert, err := Verify(signature, signatureData)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		caCertBytes, err := ioutil.ReadFile("../testdata/real-certificates/ca.crt")
+		if err != nil {
+			t.Fatal(err)
+		}
+		intermediateCert, identityCert, err := util.ExtractCertificates(string(certBytes))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := util.Validate([]string{string(caCertBytes)}, intermediateCert, identityCert, signingCert); err == nil {
+			t.Fatal(`expected error: x509: certificate has expired or is not yet valid`)
+		}
 	}
 }
 
