@@ -3,7 +3,7 @@ jobs:
   build:
     docker:
     - image: circleci/golang:1.12
-    working_directory: /go/src/github.com/hashicorp/vault-plugin-auth-pcf
+    working_directory: /go/src/github.com/hashicorp/vault-plugin-auth-cf
     steps:
     - checkout
     - run:

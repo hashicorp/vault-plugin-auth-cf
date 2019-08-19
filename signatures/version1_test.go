@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/vault-plugin-auth-pcf/testing/certificates"
-	"github.com/hashicorp/vault-plugin-auth-pcf/util"
+	"github.com/hashicorp/vault-plugin-auth-cf/testing/certificates"
+	"github.com/hashicorp/vault-plugin-auth-cf/util"
 )
 
 func TestSignVerifyIssuedByFakes(t *testing.T) {

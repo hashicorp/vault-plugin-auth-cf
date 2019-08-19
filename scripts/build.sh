@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-TOOL=vault-plugin-auth-pcf
+TOOL=vault-plugin-auth-cf
 #
 # This script builds the application from source for multiple platforms.
 set -e

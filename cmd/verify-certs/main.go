@@ -15,8 +15,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
-	"github.com/hashicorp/vault-plugin-auth-pcf/util"
+	"github.com/hashicorp/vault-plugin-auth-cf/signatures"
+	"github.com/hashicorp/vault-plugin-auth-cf/util"
 )
 
 var (

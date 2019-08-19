@@ -1,4 +1,4 @@
-package pcf
+package cf
 
 import (
 	"encoding/json"
@@ -8,9 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/vault-plugin-auth-pcf/models"
-	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
-	"github.com/hashicorp/vault-plugin-auth-pcf/testing/certificates"
+	"github.com/hashicorp/vault-plugin-auth-cf/models"
+	"github.com/hashicorp/vault-plugin-auth-cf/signatures"
+	"github.com/hashicorp/vault-plugin-auth-cf/testing/certificates"
 	"github.com/hashicorp/vault/api"
 )
 
@@ -89,24 +89,24 @@ func handleLogin(t *testing.T, testCerts *certificates.TestCertificates) func(w 
 			t.Fatal(err)
 		}
 		// Validate the certificate that matches our CA has the expected identity data.
-		pcfCert, err := models.NewPCFCertificateFromx509(cert)
+		cfCert, err := models.NewCFCertificateFromx509(cert)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if pcfCert.IPAddress != testIPAddress {
-			t.Fatalf(`expected %q but received %q`, testIPAddress, pcfCert.IPAddress)
+		if cfCert.IPAddress != testIPAddress {
+			t.Fatalf(`expected %q but received %q`, testIPAddress, cfCert.IPAddress)
 		}
-		if pcfCert.AppID != testAppID {
-			t.Fatalf(`expected %q but received %q`, testAppID, pcfCert.AppID)
+		if cfCert.AppID != testAppID {
+			t.Fatalf(`expected %q but received %q`, testAppID, cfCert.AppID)
 		}
-		if pcfCert.SpaceID != testSpaceID {
-			t.Fatalf(`expected %q but received %q`, testSpaceID, pcfCert.SpaceID)
+		if cfCert.SpaceID != testSpaceID {
+			t.Fatalf(`expected %q but received %q`, testSpaceID, cfCert.SpaceID)
 		}
-		if pcfCert.OrgID != testOrgID {
-			t.Fatalf(`expected %q but received %q`, testOrgID, pcfCert.OrgID)
+		if cfCert.OrgID != testOrgID {
+			t.Fatalf(`expected %q but received %q`, testOrgID, cfCert.OrgID)
 		}
-		if pcfCert.InstanceID != testInstanceID {
-			t.Fatalf(`expected %q but received %q`, testInstanceID, pcfCert.InstanceID)
+		if cfCert.InstanceID != testInstanceID {
+			t.Fatalf(`expected %q but received %q`, testInstanceID, cfCert.InstanceID)
 		}
 		// Success.
 		w.WriteHeader(200)

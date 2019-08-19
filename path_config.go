@@ -1,4 +1,4 @@
-package pcf
+package cf
 
 import (
 	"context"
@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hashicorp/vault-plugin-auth-pcf/models"
-	"github.com/hashicorp/vault-plugin-auth-pcf/util"
+	"github.com/hashicorp/vault-plugin-auth-cf/models"
+	"github.com/hashicorp/vault-plugin-auth-cf/util"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -19,48 +19,82 @@ func (b *backend) pathConfig() *framework.Path {
 		Pattern: "config",
 		Fields: map[string]*framework.FieldSchema{
 			"identity_ca_certificates": {
-				Required: true,
-				Type:     framework.TypeStringSlice,
+				Type: framework.TypeStringSlice,
 				DisplayAttrs: &framework.DisplayAttributes{
 					Name:  "Identity CA Certificates",
 					Value: `-----BEGIN CERTIFICATE----- ... -----END CERTIFICATE-----`,
 				},
 				Description: "The PEM-format CA certificates that are required to have issued the instance certificates presented for logging in.",
 			},
-			"pcf_api_trusted_certificates": {
+			"cf_api_trusted_certificates": {
 				Type: framework.TypeStringSlice,
 				DisplayAttrs: &framework.DisplayAttributes{
-					Name:  "PCF API Trusted IdentityCACertificates",
+					Name:  "CF API Trusted IdentityCACertificates",
 					Value: `-----BEGIN CERTIFICATE----- ... -----END CERTIFICATE-----`,
 				},
-				Description: "The PEM-format CA certificates that are acceptable for the PCF API to present.",
+				Description: "The PEM-format CA certificates that are acceptable for the CF API to present.",
 			},
-			"pcf_api_addr": {
-				Required: true,
-				Type:     framework.TypeString,
+			"cf_api_addr": {
+				Type: framework.TypeString,
 				DisplayAttrs: &framework.DisplayAttributes{
-					Name:  "PCF API Address",
+					Name:  "CF API Address",
 					Value: "https://api.10.244.0.34.xip.io",
 				},
-				Description: "PCF’s API address.",
+				Description: "CF’s API address.",
 			},
-			"pcf_username": {
-				Required: true,
-				Type:     framework.TypeString,
+			"cf_username": {
+				Type: framework.TypeString,
 				DisplayAttrs: &framework.DisplayAttributes{
-					Name:  "PCF API Username",
+					Name:  "CF API Username",
 					Value: "admin",
 				},
-				Description: "The username for PCF’s API.",
+				Description: "The username for CF’s API.",
 			},
-			"pcf_password": {
-				Required: true,
-				Type:     framework.TypeString,
+			"cf_password": {
+				Type: framework.TypeString,
 				DisplayAttrs: &framework.DisplayAttributes{
-					Name:      "PCF API Password",
+					Name:      "CF API Password",
 					Sensitive: true,
 				},
-				Description: "The password for PCF’s API.",
+				Description: "The password for CF’s API.",
+			},
+			// These fields were in the original release, but are being deprecated because Cloud Foundry is moving
+			// away from using "PCF" to refer to themselves.
+			"pcf_api_trusted_certificates": {
+				Deprecated: true,
+				Type:       framework.TypeStringSlice,
+				DisplayAttrs: &framework.DisplayAttributes{
+					Name:  "CF API Trusted IdentityCACertificates",
+					Value: `-----BEGIN CERTIFICATE----- ... -----END CERTIFICATE-----`,
+				},
+				Description: `Deprecated. Please use "cf_api_trusted_certificates".`,
+			},
+			"pcf_api_addr": {
+				Deprecated: true,
+				Type:       framework.TypeString,
+				DisplayAttrs: &framework.DisplayAttributes{
+					Name:  "CF API Address",
+					Value: "https://api.10.244.0.34.xip.io",
+				},
+				Description: `Deprecated. Please use "cf_api_addr".`,
+			},
+			"pcf_username": {
+				Deprecated: true,
+				Type:       framework.TypeString,
+				DisplayAttrs: &framework.DisplayAttributes{
+					Name:  "CF API Username",
+					Value: "admin",
+				},
+				Description: `Deprecated. Please use "cf_username".`,
+			},
+			"pcf_password": {
+				Deprecated: true,
+				Type:       framework.TypeString,
+				DisplayAttrs: &framework.DisplayAttributes{
+					Name:      "CF API Password",
+					Sensitive: true,
+				},
+				Description: `Deprecated. Please use "cf_password".`,
 			},
 			"login_max_seconds_not_before": {
 				Type: framework.TypeDurationSecond,
@@ -113,19 +147,30 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 		if len(identityCACerts) == 0 {
 			return logical.ErrorResponse("'identity_ca_certificates' is required"), nil
 		}
-		pcfApiAddr := data.Get("pcf_api_addr").(string)
-		if pcfApiAddr == "" {
-			return logical.ErrorResponse("'pcf_api_addr' is required"), nil
+
+		cfApiAddrIfc, ok := data.GetFirst("cf_api_addr", "pcf_api_addr")
+		if !ok {
+			return logical.ErrorResponse("'cf_api_addr' is required"), nil
 		}
-		pcfUsername := data.Get("pcf_username").(string)
-		if pcfUsername == "" {
-			return logical.ErrorResponse("'pcf_username' is required"), nil
+		cfApiAddr := cfApiAddrIfc.(string)
+
+		cfUsernameIfc, ok := data.GetFirst("cf_username", "pcf_username")
+		if !ok {
+			return logical.ErrorResponse("'cf_username' is required"), nil
 		}
-		pcfPassword := data.Get("pcf_password").(string)
-		if pcfPassword == "" {
-			return logical.ErrorResponse("'pcf_password' is required"), nil
+		cfUsername := cfUsernameIfc.(string)
+
+		cfPasswordIfc, ok := data.GetFirst("cf_password", "pcf_password")
+		if !ok {
+			return logical.ErrorResponse("'cf_password' is required"), nil
 		}
-		pcfApiCertificates := data.Get("pcf_api_trusted_certificates").([]string)
+		cfPassword := cfPasswordIfc.(string)
+
+		var cfApiCertificates []string
+		cfApiCertificatesIfc, ok := data.GetFirst("cf_api_trusted_certificates", "pcf_api_trusted_certificates")
+		if ok {
+			cfApiCertificates = cfApiCertificatesIfc.([]string)
+		}
 
 		// Default this to 5 minutes.
 		loginMaxSecNotBefore := 300 * time.Second
@@ -140,10 +185,10 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 		}
 		config = &models.Configuration{
 			IdentityCACertificates: identityCACerts,
-			PCFAPICertificates:     pcfApiCertificates,
-			PCFAPIAddr:             pcfApiAddr,
-			PCFUsername:            pcfUsername,
-			PCFPassword:            pcfPassword,
+			CFAPICertificates:      cfApiCertificates,
+			CFAPIAddr:              cfApiAddr,
+			CFUsername:             cfUsername,
+			CFPassword:             cfPassword,
 			LoginMaxSecNotBefore:   loginMaxSecNotBefore,
 			LoginMaxSecNotAfter:    loginMaxSecNotAfter,
 		}
@@ -152,17 +197,17 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 		if raw, ok := data.GetOk("identity_ca_certificates"); ok {
 			config.IdentityCACertificates = raw.([]string)
 		}
-		if raw, ok := data.GetOk("pcf_api_trusted_certificates"); ok {
-			config.PCFAPICertificates = raw.([]string)
+		if raw, ok := data.GetFirst("cf_api_trusted_certificates", "pcf_api_trusted_certificates"); ok {
+			config.CFAPICertificates = raw.([]string)
 		}
-		if raw, ok := data.GetOk("pcf_api_addr"); ok {
-			config.PCFAPIAddr = raw.(string)
+		if raw, ok := data.GetFirst("cf_api_addr", "pcf_api_addr"); ok {
+			config.CFAPIAddr = raw.(string)
 		}
-		if raw, ok := data.GetOk("pcf_username"); ok {
-			config.PCFUsername = raw.(string)
+		if raw, ok := data.GetFirst("cf_username", "pcf_username"); ok {
+			config.CFUsername = raw.(string)
 		}
-		if raw, ok := data.GetOk("pcf_password"); ok {
-			config.PCFPassword = raw.(string)
+		if raw, ok := data.GetFirst("cf_password", "pcf_password"); ok {
+			config.CFPassword = raw.(string)
 		}
 		if raw, ok := data.GetOk("login_max_seconds_not_before"); ok {
 			config.LoginMaxSecNotBefore = time.Duration(raw.(int)) * time.Second
@@ -174,18 +219,18 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 
 	// To give early and explicit feedback, make sure the config works by executing a test call
 	// and checking that the API version is supported. If they don't have API v2 running, we would
-	// probably expect a timeout of some sort below because it's first called in the NewPCFClient
+	// probably expect a timeout of some sort below because it's first called in the NewCFClient
 	// method.
-	client, err := util.NewPCFClient(config)
+	client, err := util.NewCFClient(config)
 	if err != nil {
-		return nil, fmt.Errorf("unable to establish an initial connection to the PCF API: %s", err)
+		return nil, fmt.Errorf("unable to establish an initial connection to the CF API: %s", err)
 	}
 	info, err := client.GetInfo()
 	if err != nil {
 		return nil, err
 	}
 	if !strings.HasPrefix(info.APIVersion, "2.") {
-		return nil, fmt.Errorf("the PCF auth plugin only supports version 2.X.X of the PCF API")
+		return nil, fmt.Errorf("the CF auth plugin only supports version 2.X.X of the CF API")
 	}
 
 	entry, err := logical.StorageEntryJSON(configStorageKey, config)
@@ -209,9 +254,9 @@ func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request,
 	return &logical.Response{
 		Data: map[string]interface{}{
 			"identity_ca_certificates":     config.IdentityCACertificates,
-			"pcf_api_trusted_certificates": config.PCFAPICertificates,
-			"pcf_api_addr":                 config.PCFAPIAddr,
-			"pcf_username":                 config.PCFUsername,
+			"cf_api_trusted_certificates":  config.CFAPICertificates,
+			"cf_api_addr":                  config.CFAPIAddr,
+			"cf_username":                  config.CFUsername,
 			"login_max_seconds_not_before": config.LoginMaxSecNotBefore / time.Second,
 			"login_max_seconds_not_after":  config.LoginMaxSecNotAfter / time.Second,
 		},
@@ -246,7 +291,7 @@ Provide Vault with the CA certificate used to issue all client certificates.
 `
 
 const pathConfigDesc = `
-When a login is attempted using a PCF client certificate, Vault will verify
+When a login is attempted using a CF client certificate, Vault will verify
 that the client certificate was issued by the CA certificate configured here.
 Only those passing this check will be able to gain authorization.
 `
