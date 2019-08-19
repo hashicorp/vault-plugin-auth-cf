@@ -1,21 +1,21 @@
-# vault-plugin-auth-pcf
+# vault-plugin-auth-cf
 
-This plugin leverages PCF's [App and Container Identity Assurance](https://content.pivotal.io/blog/new-in-pcf-2-1-app-container-identity-assurance-via-automatic-cert-rotation)
+This plugin leverages Cloud Foundry's [App and Container Identity Assurance](https://content.pivotal.io/blog/new-in-pcf-2-1-app-container-identity-assurance-via-automatic-cert-rotation)
 for authenticating to Vault. 
 
 ## Official Documentation
 
 This plugin's docs reside in the following places:
 
-- [Overview](https://www.vaultproject.io/docs/auth/pcf.html)
-- [API](https://www.vaultproject.io/api/auth/pcf/index.html)
+- [Overview](https://www.vaultproject.io/docs/auth/cf.html)
+- [API](https://www.vaultproject.io/api/auth/cf/index.html)
 
 The documentation below is intended to further elaborate, and is targeted at those developing, using,
 troubleshooting, and maintaining this plugin.
 
 ## Known Risks
 
-This authentication engine uses PCF's instance identity service to authenticate users to Vault. Because PCF
+This authentication engine uses Cloud Foundry's instance identity service to authenticate users to Vault. Because Cloud Foundry
 makes its CA certificate and **private key** available to certain users at any time, it's possible for someone
 with access to them to self-issue identity certificates that meet the criteria for a Vault role, allowing
 them to gain unintended access to Vault.
@@ -30,12 +30,12 @@ or through carefully limiting the users who can access CredHub.
 ## Getting Started
 
 The following guide provides instructions on how obtain the necessary credentials and certificates in order 
-to set up the PCF auth method. The sample PCF endpoints uses `*.lagunaniguel.cf-app.com` which should be
+to set up the Cloud Foundry auth method. The sample Cloud Foundry endpoints uses `*.lagunaniguel.cf-app.com` which should be
 replaced with the appropriate endpoints for your environment.
 
 ### Obtaining Your Instance Identity CA Certificate
 
-In most versions of PCF, instance identity is enabled out-of-the-box. Check by pulling your CA certificate,
+In most versions of Cloud Foundry, instance identity is enabled out-of-the-box. Check by pulling your CA certificate,
 which you'll need to configure this auth engine. There are undoubtedly multiple ways to do this, but this
 is how we did it.
 
