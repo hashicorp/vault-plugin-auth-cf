@@ -85,6 +85,8 @@ func TestBackend(t *testing.T) {
 		TestCerts: testCerts,
 	}
 	// Exercise all the endpoints.
+	t.Run("create old config", env.StoreV0Config)
+	t.Run("read old config", env.ReadV0Config)
 	t.Run("create config", env.CreateConfig)
 	t.Run("read config", env.ReadConfig)
 	t.Run("update config", env.UpdateConfig)
@@ -110,6 +112,50 @@ type Env struct {
 	TestConf  *models.Configuration
 	TestRole  *models.RoleEntry
 	TestCerts *certificates.TestCertificates
+}
+
+func (e *Env) StoreV0Config(t *testing.T) {
+
+	config := &models.Configuration{
+		IdentityCACertificates: e.TestConf.IdentityCACertificates,
+		PCFAPIAddr:             e.TestConf.CFAPIAddr,
+		PCFUsername:            e.TestConf.CFUsername,
+		PCFPassword:            e.TestConf.CFPassword,
+		LoginMaxSecNotBefore:   12,
+		LoginMaxSecNotAfter:    13,
+	}
+	if err := storeConfig(e.Ctx, e.Storage, config); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (e *Env) ReadV0Config(t *testing.T) {
+	req := &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "config",
+		Storage:   e.Storage,
+	}
+	resp, err := e.Backend.HandleRequest(e.Ctx, req)
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr:%v", resp, err)
+	}
+	if resp == nil {
+		t.Fatal("response shouldn't be nil")
+	}
+	for i, caCertRaw := range resp.Data["identity_ca_certificates"].([]string) {
+		if withoutNewlines(caCertRaw) != withoutNewlines(e.TestConf.IdentityCACertificates[i]) {
+			t.Fatalf("expected %q but received %q", e.TestConf.IdentityCACertificates[i], caCertRaw)
+		}
+	}
+	if resp.Data["cf_api_addr"] != e.TestConf.CFAPIAddr {
+		t.Fatalf("expected %s but received %s", e.TestConf.CFAPIAddr, resp.Data["cf_api_addr"])
+	}
+	if resp.Data["cf_username"] != e.TestConf.CFUsername {
+		t.Fatalf("expected %s but received %s", e.TestConf.CFUsername, resp.Data["cf_username"])
+	}
+	if resp.Data["cf_password"] != nil {
+		t.Fatalf("expected %s but received %s", "nil", resp.Data["cf_password"])
+	}
 }
 
 func (e *Env) CreateConfig(t *testing.T) {
