@@ -143,6 +143,7 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 	}
 	if config == nil {
 		// They're creating a config.
+		// All new configs will be created as config version 1.
 		identityCACerts := data.Get("identity_ca_certificates").([]string)
 		if len(identityCACerts) == 0 {
 			return logical.ErrorResponse("'identity_ca_certificates' is required"), nil
@@ -184,6 +185,7 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 			loginMaxSecNotAfter = time.Duration(raw.(int)) * time.Second
 		}
 		config = &models.Configuration{
+			Version:                1,
 			IdentityCACertificates: identityCACerts,
 			CFAPICertificates:      cfApiCertificates,
 			CFAPIAddr:              cfApiAddr,
@@ -194,6 +196,8 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 		}
 	} else {
 		// They're updating a config. Only update the fields that have been sent in the call.
+		// The stored config will have already handled any version upgrades necessary on read,
+		// so here we only need to deal with setting up the present version of the config.
 		if raw, ok := data.GetOk("identity_ca_certificates"); ok {
 			config.IdentityCACertificates = raw.([]string)
 		}
@@ -233,11 +237,7 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 		return nil, fmt.Errorf("the CF auth plugin only supports version 2.X.X of the CF API")
 	}
 
-	entry, err := logical.StorageEntryJSON(configStorageKey, config)
-	if err != nil {
-		return nil, err
-	}
-	if err := req.Storage.Put(ctx, entry); err != nil {
+	if err := storeConfig(ctx, req.Storage, config); err != nil {
 		return nil, err
 	}
 	return nil, nil
@@ -251,8 +251,9 @@ func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request,
 	if config == nil {
 		return nil, nil
 	}
-	return &logical.Response{
+	resp := &logical.Response{
 		Data: map[string]interface{}{
+			"version":                      config.Version,
 			"identity_ca_certificates":     config.IdentityCACertificates,
 			"cf_api_trusted_certificates":  config.CFAPICertificates,
 			"cf_api_addr":                  config.CFAPIAddr,
@@ -260,7 +261,22 @@ func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request,
 			"login_max_seconds_not_before": config.LoginMaxSecNotBefore / time.Second,
 			"login_max_seconds_not_after":  config.LoginMaxSecNotAfter / time.Second,
 		},
-	}, nil
+	}
+	// Populate any deprecated values and warn about them. These should just be stripped when we go to
+	// version 2 of the config.
+	if len(config.PCFAPICertificates) > 0 {
+		resp.Data["pcf_api_trusted_certificates"] = config.PCFAPICertificates
+		resp.AddWarning(deprecationText("cf_api_trusted_certificates", "pcf_api_trusted_certificates"))
+	}
+	if config.PCFAPIAddr != "" {
+		resp.Data["pcf_api_addr"] = config.PCFAPIAddr
+		resp.AddWarning(deprecationText("cf_api_addr", "pcf_api_addr"))
+	}
+	if config.PCFUsername != "" {
+		resp.Data["pcf_username"] = config.PCFUsername
+		resp.AddWarning(deprecationText("cf_username", "pcf_username"))
+	}
+	return resp, nil
 }
 
 func (b *backend) operationConfigDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
@@ -283,7 +299,39 @@ func config(ctx context.Context, storage logical.Storage) (*models.Configuration
 	if err := entry.DecodeJSON(config); err != nil {
 		return nil, err
 	}
+
+	// Perform config version migrations if needed.
+	if config.Version == 0 {
+		if config.CFAPIAddr == "" && config.PCFAPIAddr != "" {
+			config.CFAPIAddr = config.PCFAPIAddr
+		}
+		if len(config.CFAPICertificates) == 0 && len(config.PCFAPICertificates) > 0 {
+			config.CFAPICertificates = config.PCFAPICertificates
+		}
+		if config.CFUsername == "" && config.PCFUsername != "" {
+			config.CFUsername = config.PCFUsername
+		}
+		if config.CFPassword == "" && config.PCFPassword != "" {
+			config.CFPassword = config.PCFPassword
+		}
+		config.Version = 1
+		if err := storeConfig(ctx, storage, config); err != nil {
+			return nil, err
+		}
+	}
 	return config, nil
+}
+
+func storeConfig(ctx context.Context, storage logical.Storage, conf *models.Configuration) error {
+	entry, err := logical.StorageEntryJSON(configStorageKey, conf)
+	if err != nil {
+		return err
+	}
+	return storage.Put(ctx, entry)
+}
+
+func deprecationText(newParam, oldParam string) string {
+	return fmt.Sprintf("Use %q instead. If this and %q are both specified, only %q will be used.", newParam, oldParam, newParam)
 }
 
 const pathConfigSyn = `

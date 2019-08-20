@@ -31,7 +31,7 @@ func NewCFClient(config *models.Configuration) (*cfclient.Client, error) {
 	}
 	for _, certificate := range config.CFAPICertificates {
 		if ok := rootCAs.AppendCertsFromPEM([]byte(certificate)); !ok {
-			return nil, fmt.Errorf("couldn't append PCF API cert to trust: %s", certificate)
+			return nil, fmt.Errorf("couldn't append CF API cert to trust: %s", certificate)
 		}
 	}
 	tlsConfig := &tls.Config{
