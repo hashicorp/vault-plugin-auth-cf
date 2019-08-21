@@ -372,7 +372,7 @@ URL: PUT http://127.0.0.1:8200/v1/auth/cf/config
 Code: 500. Errors:
 
 * 1 error occurred:
-	* unable to establish an initial connection to the PCF API: Could not get api /v2/info: Get https://api.sys.lagunaniguel.cf-app.com/v2/info: x509: certificate signed by unknown authority
+	* unable to establish an initial connection to the CF API: Could not get api /v2/info: Get https://api.sys.lagunaniguel.cf-app.com/v2/info: x509: certificate signed by unknown authority
 ```
 
 To resolve this error, review instructions above regarding setting the `cf_api_trusted_certificates` field.

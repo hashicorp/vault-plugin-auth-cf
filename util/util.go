@@ -13,7 +13,7 @@ import (
 
 const BashTimeFormat = "Mon Jan 2 15:04:05 MST 2006"
 
-// NewCFClient does some work that's needed every time we use the PCF client,
+// NewCFClient does some work that's needed every time we use the CF client,
 // namely using cleanhttp and configuring it to match the user conf.
 func NewCFClient(config *models.Configuration) (*cfclient.Client, error) {
 	clientConf := &cfclient.Config{
