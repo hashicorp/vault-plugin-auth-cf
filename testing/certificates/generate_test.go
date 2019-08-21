@@ -4,9 +4,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hashicorp/vault-plugin-auth-pcf/models"
-	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
-	"github.com/hashicorp/vault-plugin-auth-pcf/util"
+	"github.com/hashicorp/vault-plugin-auth-cf/models"
+	"github.com/hashicorp/vault-plugin-auth-cf/signatures"
+	"github.com/hashicorp/vault-plugin-auth-cf/util"
 )
 
 func TestGenerate(t *testing.T) {
@@ -48,23 +48,23 @@ func TestGenerate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pcfCert, err := models.NewPCFCertificateFromx509(signingCert)
+	cfCert, err := models.NewCFCertificateFromx509(signingCert)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pcfCert.InstanceID != "instance-id" {
-		t.Fatalf("expected instance-id but received %q", pcfCert.InstanceID)
+	if cfCert.InstanceID != "instance-id" {
+		t.Fatalf("expected instance-id but received %q", cfCert.InstanceID)
 	}
-	if pcfCert.OrgID != "org-id" {
-		t.Fatalf("expected org-id but received %q", pcfCert.OrgID)
+	if cfCert.OrgID != "org-id" {
+		t.Fatalf("expected org-id but received %q", cfCert.OrgID)
 	}
-	if pcfCert.SpaceID != "space-id" {
-		t.Fatalf("expected space-id but received %q", pcfCert.SpaceID)
+	if cfCert.SpaceID != "space-id" {
+		t.Fatalf("expected space-id but received %q", cfCert.SpaceID)
 	}
-	if pcfCert.AppID != "app-id" {
-		t.Fatalf("expected app-id but received %q", pcfCert.AppID)
+	if cfCert.AppID != "app-id" {
+		t.Fatalf("expected app-id but received %q", cfCert.AppID)
 	}
-	if pcfCert.IPAddress != "10.255.181.105" {
-		t.Fatalf("expected 10.255.181.105 but received %q", pcfCert.IPAddress)
+	if cfCert.IPAddress != "10.255.181.105" {
+		t.Fatalf("expected 10.255.181.105 but received %q", cfCert.IPAddress)
 	}
 }

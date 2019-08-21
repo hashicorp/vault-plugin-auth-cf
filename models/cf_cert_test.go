@@ -105,49 +105,49 @@ func TestNewPcfCertificateFromx509(t *testing.T) {
 	if len(certs) != 2 {
 		t.Fatalf("expected 2 certs but received %d", len(certs))
 	}
-	pcfCert, err := NewPCFCertificateFromx509(certs[1])
+	cfCert, err := NewCFCertificateFromx509(certs[1])
 	if err == nil {
 		t.Fatal("expected the second certificate to fail verification")
 	}
-	pcfCert, err = NewPCFCertificateFromx509(certs[0])
+	cfCert, err = NewCFCertificateFromx509(certs[0])
 	if err != nil {
 		t.Fatal("expected the first certificate to be valid")
 	}
-	if pcfCert.InstanceID != "f9c7cd7d-1612-4f57-63a8-f995" {
-		t.Fatalf("expected %s but received %s", "f9c7cd7d-1612-4f57-63a8-f995", pcfCert.InstanceID)
+	if cfCert.InstanceID != "f9c7cd7d-1612-4f57-63a8-f995" {
+		t.Fatalf("expected %s but received %s", "f9c7cd7d-1612-4f57-63a8-f995", cfCert.InstanceID)
 	}
-	if pcfCert.AppID != "2d3e834a-3a25-4591-974c-fa5626d5d0a1" {
-		t.Fatalf("expected %s but received %s", "2d3e834a-3a25-4591-974c-fa5626d5d0a1", pcfCert.AppID)
+	if cfCert.AppID != "2d3e834a-3a25-4591-974c-fa5626d5d0a1" {
+		t.Fatalf("expected %s but received %s", "2d3e834a-3a25-4591-974c-fa5626d5d0a1", cfCert.AppID)
 	}
-	if pcfCert.SpaceID != "3d2eba6b-ef19-44d5-91dd-1975b0db5cc9" {
-		t.Fatalf("expected %s but received %s", "3d2eba6b-ef19-44d5-91dd-1975b0db5cc9", pcfCert.SpaceID)
+	if cfCert.SpaceID != "3d2eba6b-ef19-44d5-91dd-1975b0db5cc9" {
+		t.Fatalf("expected %s but received %s", "3d2eba6b-ef19-44d5-91dd-1975b0db5cc9", cfCert.SpaceID)
 	}
-	if pcfCert.OrgID != "34a878d0-c2f9-4521-ba73-a9f664e82c7b" {
-		t.Fatalf("expected %s but received %s", "34a878d0-c2f9-4521-ba73-a9f664e82c7b", pcfCert.OrgID)
+	if cfCert.OrgID != "34a878d0-c2f9-4521-ba73-a9f664e82c7b" {
+		t.Fatalf("expected %s but received %s", "34a878d0-c2f9-4521-ba73-a9f664e82c7b", cfCert.OrgID)
 	}
-	if pcfCert.IPAddress != "10.255.181.105" {
-		t.Fatalf("expected %s but received %s", "10.255.181.105", pcfCert.IPAddress)
+	if cfCert.IPAddress != "10.255.181.105" {
+		t.Fatalf("expected %s but received %s", "10.255.181.105", cfCert.IPAddress)
 	}
 }
 
-func TestNewPCFCertificate(t *testing.T) {
-	pcfCert, err := NewPCFCertificate("f9c7cd7d-1612-4f57-63a8-f995", "34a878d0-c2f9-4521-ba73-a9f664e82c7b", "3d2eba6b-ef19-44d5-91dd-1975b0db5cc9", "2d3e834a-3a25-4591-974c-fa5626d5d0a1", "10.255.181.105")
+func TestNewCFCertificate(t *testing.T) {
+	cfCert, err := NewCFCertificate("f9c7cd7d-1612-4f57-63a8-f995", "34a878d0-c2f9-4521-ba73-a9f664e82c7b", "3d2eba6b-ef19-44d5-91dd-1975b0db5cc9", "2d3e834a-3a25-4591-974c-fa5626d5d0a1", "10.255.181.105")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pcfCert.InstanceID != "f9c7cd7d-1612-4f57-63a8-f995" {
-		t.Fatalf("expected %s but received %s", "f9c7cd7d-1612-4f57-63a8-f995", pcfCert.InstanceID)
+	if cfCert.InstanceID != "f9c7cd7d-1612-4f57-63a8-f995" {
+		t.Fatalf("expected %s but received %s", "f9c7cd7d-1612-4f57-63a8-f995", cfCert.InstanceID)
 	}
-	if pcfCert.AppID != "2d3e834a-3a25-4591-974c-fa5626d5d0a1" {
-		t.Fatalf("expected %s but received %s", "2d3e834a-3a25-4591-974c-fa5626d5d0a1", pcfCert.AppID)
+	if cfCert.AppID != "2d3e834a-3a25-4591-974c-fa5626d5d0a1" {
+		t.Fatalf("expected %s but received %s", "2d3e834a-3a25-4591-974c-fa5626d5d0a1", cfCert.AppID)
 	}
-	if pcfCert.SpaceID != "3d2eba6b-ef19-44d5-91dd-1975b0db5cc9" {
-		t.Fatalf("expected %s but received %s", "3d2eba6b-ef19-44d5-91dd-1975b0db5cc9", pcfCert.SpaceID)
+	if cfCert.SpaceID != "3d2eba6b-ef19-44d5-91dd-1975b0db5cc9" {
+		t.Fatalf("expected %s but received %s", "3d2eba6b-ef19-44d5-91dd-1975b0db5cc9", cfCert.SpaceID)
 	}
-	if pcfCert.OrgID != "34a878d0-c2f9-4521-ba73-a9f664e82c7b" {
-		t.Fatalf("expected %s but received %s", "34a878d0-c2f9-4521-ba73-a9f664e82c7b", pcfCert.OrgID)
+	if cfCert.OrgID != "34a878d0-c2f9-4521-ba73-a9f664e82c7b" {
+		t.Fatalf("expected %s but received %s", "34a878d0-c2f9-4521-ba73-a9f664e82c7b", cfCert.OrgID)
 	}
-	if pcfCert.IPAddress != "10.255.181.105" {
-		t.Fatalf("expected %s but received %s", "10.255.181.105", pcfCert.IPAddress)
+	if cfCert.IPAddress != "10.255.181.105" {
+		t.Fatalf("expected %s but received %s", "10.255.181.105", cfCert.IPAddress)
 	}
 }

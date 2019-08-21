@@ -6,7 +6,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/hashicorp/vault-plugin-auth-pcf/testing/certificates"
+	"github.com/hashicorp/vault-plugin-auth-cf/testing/certificates"
 )
 
 const (

@@ -16,7 +16,7 @@ To use it for directly logging into Vault:
 	export CF_INSTANCE_KEY=path/to/instance.key
 	export SIGNING_TIME=$(date -u)
 	export ROLE='test-role'
-	vault write auth/vault-plugin-auth-pcf/login \
+	vault write auth/vault-plugin-auth-cf/login \
 		role=$ROLE \
 		certificate=$CF_INSTANCE_CERT \
 		signing_time=SIGNING_TIME \
@@ -29,8 +29,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
-	"github.com/hashicorp/vault-plugin-auth-pcf/util"
+	"github.com/hashicorp/vault-plugin-auth-cf/signatures"
+	"github.com/hashicorp/vault-plugin-auth-cf/util"
 )
 
 func main() {

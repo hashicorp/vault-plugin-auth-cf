@@ -1,4 +1,4 @@
-package pcf
+package cf
 
 import (
 	"context"
@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/vault-plugin-auth-pcf/models"
-	"github.com/hashicorp/vault-plugin-auth-pcf/signatures"
-	"github.com/hashicorp/vault-plugin-auth-pcf/testing/certificates"
-	"github.com/hashicorp/vault-plugin-auth-pcf/testing/pcf"
+	"github.com/hashicorp/vault-plugin-auth-cf/models"
+	"github.com/hashicorp/vault-plugin-auth-cf/signatures"
+	"github.com/hashicorp/vault-plugin-auth-cf/testing/certificates"
+	"github.com/hashicorp/vault-plugin-auth-cf/testing/cf"
 	"github.com/hashicorp/vault/sdk/helper/parseutil"
 	"github.com/hashicorp/vault/sdk/logical"
 )
@@ -23,7 +23,7 @@ func TestBackend(t *testing.T) {
 	ctx := context.Background()
 	storage := &logical.InmemStorage{}
 
-	testCerts, err := certificates.Generate(pcf.FoundServiceGUID, pcf.FoundOrgGUID, pcf.FoundSpaceGUID, pcf.FoundAppGUID, "10.255.181.105")
+	testCerts, err := certificates.Generate(cf.FoundServiceGUID, cf.FoundOrgGUID, cf.FoundSpaceGUID, cf.FoundAppGUID, "10.255.181.105")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -38,14 +38,14 @@ func TestBackend(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pcfServer := pcf.MockServer(false)
-	defer pcfServer.Close()
+	cfServer := cf.MockServer(false)
+	defer cfServer.Close()
 
 	testConf := &models.Configuration{
 		IdentityCACertificates: []string{testCerts.CACertificate, string(invalidCaCertBytes)},
-		PCFAPIAddr:             pcfServer.URL,
-		PCFUsername:            pcf.AuthUsername,
-		PCFPassword:            pcf.AuthPassword,
+		CFAPIAddr:              cfServer.URL,
+		CFUsername:             cf.AuthUsername,
+		CFPassword:             cf.AuthPassword,
 		LoginMaxSecNotBefore:   5,
 		LoginMaxSecNotAfter:    1,
 	}
@@ -72,10 +72,10 @@ func TestBackend(t *testing.T) {
 		Backend:  backend,
 		TestConf: testConf,
 		TestRole: &models.RoleEntry{
-			BoundAppIDs:      []string{pcf.FoundAppGUID},
-			BoundSpaceIDs:    []string{pcf.FoundSpaceGUID},
-			BoundOrgIDs:      []string{pcf.FoundOrgGUID},
-			BoundInstanceIDs: []string{pcf.FoundServiceGUID},
+			BoundAppIDs:      []string{cf.FoundAppGUID},
+			BoundSpaceIDs:    []string{cf.FoundSpaceGUID},
+			BoundOrgIDs:      []string{cf.FoundOrgGUID},
+			BoundInstanceIDs: []string{cf.FoundServiceGUID},
 			BoundCIDRs:       parsedCIDRs,
 			Policies:         []string{"default", "foo"},
 			TTL:              60,
@@ -85,6 +85,8 @@ func TestBackend(t *testing.T) {
 		TestCerts: testCerts,
 	}
 	// Exercise all the endpoints.
+	t.Run("create old config", env.StoreV0Config)
+	t.Run("read old config", env.ReadV0Config)
 	t.Run("create config", env.CreateConfig)
 	t.Run("read config", env.ReadConfig)
 	t.Run("update config", env.UpdateConfig)
@@ -112,6 +114,50 @@ type Env struct {
 	TestCerts *certificates.TestCertificates
 }
 
+func (e *Env) StoreV0Config(t *testing.T) {
+
+	config := &models.Configuration{
+		IdentityCACertificates: e.TestConf.IdentityCACertificates,
+		PCFAPIAddr:             e.TestConf.CFAPIAddr,
+		PCFUsername:            e.TestConf.CFUsername,
+		PCFPassword:            e.TestConf.CFPassword,
+		LoginMaxSecNotBefore:   12,
+		LoginMaxSecNotAfter:    13,
+	}
+	if err := storeConfig(e.Ctx, e.Storage, config); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func (e *Env) ReadV0Config(t *testing.T) {
+	req := &logical.Request{
+		Operation: logical.ReadOperation,
+		Path:      "config",
+		Storage:   e.Storage,
+	}
+	resp, err := e.Backend.HandleRequest(e.Ctx, req)
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr:%v", resp, err)
+	}
+	if resp == nil {
+		t.Fatal("response shouldn't be nil")
+	}
+	for i, caCertRaw := range resp.Data["identity_ca_certificates"].([]string) {
+		if withoutNewlines(caCertRaw) != withoutNewlines(e.TestConf.IdentityCACertificates[i]) {
+			t.Fatalf("expected %q but received %q", e.TestConf.IdentityCACertificates[i], caCertRaw)
+		}
+	}
+	if resp.Data["cf_api_addr"] != e.TestConf.CFAPIAddr {
+		t.Fatalf("expected %s but received %s", e.TestConf.CFAPIAddr, resp.Data["cf_api_addr"])
+	}
+	if resp.Data["cf_username"] != e.TestConf.CFUsername {
+		t.Fatalf("expected %s but received %s", e.TestConf.CFUsername, resp.Data["cf_username"])
+	}
+	if resp.Data["cf_password"] != nil {
+		t.Fatalf("expected %s but received %s", "nil", resp.Data["cf_password"])
+	}
+}
+
 func (e *Env) CreateConfig(t *testing.T) {
 	req := &logical.Request{
 		Operation: logical.CreateOperation,
@@ -119,9 +165,9 @@ func (e *Env) CreateConfig(t *testing.T) {
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
 			"identity_ca_certificates":     e.TestConf.IdentityCACertificates,
-			"pcf_api_addr":                 e.TestConf.PCFAPIAddr,
-			"pcf_username":                 e.TestConf.PCFUsername,
-			"pcf_password":                 e.TestConf.PCFPassword,
+			"cf_api_addr":                  e.TestConf.CFAPIAddr,
+			"cf_username":                  e.TestConf.CFUsername,
+			"cf_password":                  e.TestConf.CFPassword,
 			"login_max_seconds_not_before": 12,
 			"login_max_seconds_not_after":  13,
 		},
@@ -153,14 +199,14 @@ func (e *Env) ReadConfig(t *testing.T) {
 			t.Fatalf("expected %q but received %q", e.TestConf.IdentityCACertificates[i], caCertRaw)
 		}
 	}
-	if resp.Data["pcf_api_addr"] != e.TestConf.PCFAPIAddr {
-		t.Fatalf("expected %s but received %s", e.TestConf.PCFAPIAddr, resp.Data["pcf_api_addr"])
+	if resp.Data["cf_api_addr"] != e.TestConf.CFAPIAddr {
+		t.Fatalf("expected %s but received %s", e.TestConf.CFAPIAddr, resp.Data["cf_api_addr"])
 	}
-	if resp.Data["pcf_username"] != e.TestConf.PCFUsername {
-		t.Fatalf("expected %s but received %s", e.TestConf.PCFUsername, resp.Data["pcf_username"])
+	if resp.Data["cf_username"] != e.TestConf.CFUsername {
+		t.Fatalf("expected %s but received %s", e.TestConf.CFUsername, resp.Data["cf_username"])
 	}
-	if resp.Data["pcf_password"] != nil {
-		t.Fatalf("expected %s but received %s", "nil", resp.Data["pcf_password"])
+	if resp.Data["cf_password"] != nil {
+		t.Fatalf("expected %s but received %s", "nil", resp.Data["cf_password"])
 	}
 }
 
@@ -201,14 +247,14 @@ func (e *Env) ReadUpdatedConfig(t *testing.T) {
 			t.Fatalf("expected %q but received %q", e.TestConf.IdentityCACertificates[i], caCertRaw)
 		}
 	}
-	if resp.Data["pcf_api_addr"] != e.TestConf.PCFAPIAddr {
-		t.Fatalf("expected %s but received %s", e.TestConf.PCFAPIAddr, resp.Data["pcf_api_addr"])
+	if resp.Data["cf_api_addr"] != e.TestConf.CFAPIAddr {
+		t.Fatalf("expected %s but received %s", e.TestConf.CFAPIAddr, resp.Data["cf_api_addr"])
 	}
-	if resp.Data["pcf_username"] != e.TestConf.PCFUsername {
-		t.Fatalf("expected %s but received %s", e.TestConf.PCFUsername, resp.Data["pcf_username"])
+	if resp.Data["cf_username"] != e.TestConf.CFUsername {
+		t.Fatalf("expected %s but received %s", e.TestConf.CFUsername, resp.Data["cf_username"])
 	}
-	if resp.Data["pcf_password"] != nil {
-		t.Fatalf("expected %s but received %s", "", resp.Data["pcf_password"])
+	if resp.Data["cf_password"] != nil {
+		t.Fatalf("expected %s but received %s", "", resp.Data["cf_password"])
 	}
 }
 
@@ -487,8 +533,8 @@ func (e *Env) Login(t *testing.T) {
 		t.Fatalf("bad: resp: %#v\nerr:%v", resp, err)
 	}
 
-	if resp.Auth.DisplayName != pcf.FoundServiceGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundServiceGUID, resp.Auth.DisplayName)
+	if resp.Auth.DisplayName != cf.FoundServiceGUID {
+		t.Fatalf("expected %s but received %s", cf.FoundServiceGUID, resp.Auth.DisplayName)
 	}
 	if len(resp.Auth.Policies) != 2 {
 		t.Fatalf("expected 2 policies but received %d", len(resp.Auth.Policies))
@@ -496,23 +542,23 @@ func (e *Env) Login(t *testing.T) {
 	if resp.Auth.InternalData["role"] != "test-role" {
 		t.Fatalf("expected %s but received %s", "test-role", resp.Auth.InternalData["role"])
 	}
-	if resp.Auth.InternalData["instance_id"] != pcf.FoundServiceGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundServiceGUID, resp.Auth.InternalData["instance_id"])
+	if resp.Auth.InternalData["instance_id"] != cf.FoundServiceGUID {
+		t.Fatalf("expected %s but received %s", cf.FoundServiceGUID, resp.Auth.InternalData["instance_id"])
 	}
-	if resp.Auth.Alias.Metadata["org_id"] != pcf.FoundOrgGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundOrgGUID, resp.Auth.Alias.Metadata["org_id"])
+	if resp.Auth.Alias.Metadata["org_id"] != cf.FoundOrgGUID {
+		t.Fatalf("expected %s but received %s", cf.FoundOrgGUID, resp.Auth.Alias.Metadata["org_id"])
 	}
-	if resp.Auth.Alias.Metadata["app_id"] != pcf.FoundAppGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundAppGUID, resp.Auth.Alias.Metadata["app_id"])
+	if resp.Auth.Alias.Metadata["app_id"] != cf.FoundAppGUID {
+		t.Fatalf("expected %s but received %s", cf.FoundAppGUID, resp.Auth.Alias.Metadata["app_id"])
 	}
-	if resp.Auth.Alias.Metadata["space_id"] != pcf.FoundSpaceGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundSpaceGUID, resp.Auth.Alias.Metadata["space_id"])
+	if resp.Auth.Alias.Metadata["space_id"] != cf.FoundSpaceGUID {
+		t.Fatalf("expected %s but received %s", cf.FoundSpaceGUID, resp.Auth.Alias.Metadata["space_id"])
 	}
 	if resp.Auth.InternalData["ip_addresses"] != nil {
 		t.Fatalf("expected %s but received %s", "", resp.Auth.InternalData["ip_addresses"])
 	}
-	if resp.Auth.Alias.Name != pcf.FoundAppGUID {
-		t.Fatalf("expected %s but received %s", pcf.FoundServiceGUID, resp.Auth.Alias.Name)
+	if resp.Auth.Alias.Name != cf.FoundAppGUID {
+		t.Fatalf("expected %s but received %s", cf.FoundServiceGUID, resp.Auth.Alias.Name)
 	}
 	if !resp.Auth.LeaseOptions.Renewable {
 		t.Fatal("expected lease to be renewable")
