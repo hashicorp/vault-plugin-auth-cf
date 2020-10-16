@@ -13,6 +13,9 @@ const (
 	AuthUsername = "username"
 	AuthPassword = "password"
 
+	AuthClientID      = "ClientID"
+	AuthClientSecrete = "ClientSecret"
+
 	FoundServiceGUID = "1bf2e7f6-2d1d-41ec-501c-c70"
 	FoundAppGUID     = "2d3e834a-3a25-4591-974c-fa5626d5d0a1"
 	FoundOrgGUID     = "34a878d0-c2f9-4521-ba73-a9f664e82c7bf"

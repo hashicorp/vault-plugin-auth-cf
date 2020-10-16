@@ -32,6 +32,12 @@ type Configuration struct {
 	// The password for the CF API.
 	CFPassword string `json:"cf_password"`
 
+	// The Client ID for the CF API auth.
+	CFClientID string `json:"cf_client_id"`
+
+	// The Client Secret for the CF API auth.
+	CFClientSecret string `json:"cf_client_secret"`
+
 	// The maximum seconds old a login request's signing time can be.
 	// This is configurable because in some test environments we found as much as 2 hours of clock drift.
 	LoginMaxSecNotBefore time.Duration `json:"login_max_seconds_not_before"`

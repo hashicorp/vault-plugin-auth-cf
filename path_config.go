@@ -58,6 +58,22 @@ func (b *backend) pathConfig() *framework.Path {
 				},
 				Description: "The password for CF’s API.",
 			},
+			"cf_client_id": {
+				Type: framework.TypeString,
+				DisplayAttrs: &framework.DisplayAttributes{
+					Name:  "CF API Client ID",
+					Value: "client",
+				},
+				Description: "The client id for CF’s API.",
+			},
+			"cf_client_secret": {
+				Type: framework.TypeString,
+				DisplayAttrs: &framework.DisplayAttributes{
+					Name:      "CF API Client Secret",
+					Sensitive: true,
+				},
+				Description: "The client secret for CF’s API.",
+			},
 			// These fields were in the original release, but are being deprecated because Cloud Foundry is moving
 			// away from using "PCF" to refer to themselves.
 			"pcf_api_trusted_certificates": {
@@ -155,17 +171,40 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 		}
 		cfApiAddr := cfApiAddrIfc.(string)
 
+		var cfUsername string
 		cfUsernameIfc, ok := data.GetFirst("cf_username", "pcf_username")
-		if !ok {
-			return logical.ErrorResponse("'cf_username' is required"), nil
+		if ok {
+			cfUsername = cfUsernameIfc.(string)
 		}
-		cfUsername := cfUsernameIfc.(string)
 
+		var cfPassword string
 		cfPasswordIfc, ok := data.GetFirst("cf_password", "pcf_password")
-		if !ok {
-			return logical.ErrorResponse("'cf_password' is required"), nil
+		if ok {
+			cfPassword = cfPasswordIfc.(string)
 		}
-		cfPassword := cfPasswordIfc.(string)
+
+		var cfClientId string
+		cfClientIdIfc, ok := data.GetOk("cf_client_id")
+		if ok {
+			cfClientId = cfClientIdIfc.(string)
+		}
+
+		var cfClientSecret string
+		cfClientSecretIfc, ok := data.GetOk("cf_client_secret")
+		if ok {
+			cfClientSecret = cfClientSecretIfc.(string)
+		}
+
+		// Before continuing, make sure that we have a pair of cf_username & cf_password,
+		// pcf_username & pcf_password or cf_client_id & cf_client_secret
+		// if none exist, then we should fail right away.
+		if cfUsername == "" && cfClientId == "" {
+			return logical.ErrorResponse("'cf_username' or 'cf_client_id' is required"), nil
+		}
+
+		if cfPassword == "" && cfClientSecret == "" {
+			return logical.ErrorResponse("'cf_password' or 'cf_client_secret' is required"), nil
+		}
 
 		var cfApiCertificates []string
 		cfApiCertificatesIfc, ok := data.GetFirst("cf_api_trusted_certificates", "pcf_api_trusted_certificates")
@@ -184,6 +223,7 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 		if raw, ok := data.GetOk("login_max_seconds_not_after"); ok {
 			loginMaxSecNotAfter = time.Duration(raw.(int)) * time.Second
 		}
+
 		config = &models.Configuration{
 			Version:                1,
 			IdentityCACertificates: identityCACerts,
@@ -191,6 +231,8 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 			CFAPIAddr:              cfApiAddr,
 			CFUsername:             cfUsername,
 			CFPassword:             cfPassword,
+			CFClientID:             cfClientId,
+			CFClientSecret:         cfClientSecret,
 			LoginMaxSecNotBefore:   loginMaxSecNotBefore,
 			LoginMaxSecNotAfter:    loginMaxSecNotAfter,
 		}
@@ -218,6 +260,12 @@ func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.
 		}
 		if raw, ok := data.GetOk("login_max_seconds_not_after"); ok {
 			config.LoginMaxSecNotAfter = time.Duration(raw.(int)) * time.Second
+		}
+		if raw, ok := data.GetOk("cf_client_id"); ok {
+			config.CFClientID = raw.(string)
+		}
+		if raw, ok := data.GetOk("cf_client_secret"); ok {
+			config.CFClientSecret = raw.(string)
 		}
 	}
 
@@ -258,6 +306,7 @@ func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request,
 			"cf_api_trusted_certificates":  config.CFAPICertificates,
 			"cf_api_addr":                  config.CFAPIAddr,
 			"cf_username":                  config.CFUsername,
+			"cf_client_id":                 config.CFClientID,
 			"login_max_seconds_not_before": config.LoginMaxSecNotBefore / time.Second,
 			"login_max_seconds_not_after":  config.LoginMaxSecNotAfter / time.Second,
 		},
