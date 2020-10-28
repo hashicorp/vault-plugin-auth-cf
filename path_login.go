@@ -180,6 +180,21 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
+	orgName, err := b.getOrgName(client, cfCert)
+	if err != nil {
+		return nil, err
+	}
+
+	appName, err := b.getAppName(client, cfCert)
+	if err != nil {
+		return nil, err
+	}
+
+	spaceName, err := b.getSpaceName(client, cfCert)
+	if err != nil {
+		return nil, err
+	}
+
 	// Everything checks out.
 	auth := &logical.Auth{
 		InternalData: map[string]interface{}{
@@ -191,9 +206,12 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		Alias: &logical.Alias{
 			Name: cfCert.AppID,
 			Metadata: map[string]string{
-				"org_id":   cfCert.OrgID,
-				"app_id":   cfCert.AppID,
-				"space_id": cfCert.SpaceID,
+				"org_id":     cfCert.OrgID,
+				"app_id":     cfCert.AppID,
+				"space_id":   cfCert.SpaceID,
+				"org_name":   orgName,
+				"app_name":   appName,
+				"space_name": spaceName,
 			},
 		},
 	}
@@ -330,6 +348,39 @@ func (b *backend) validate(client *cfclient.Client, role *models.RoleEntry, cfCe
 		return fmt.Errorf("cert org ID %s doesn't match API's expected one of %s", cfCert.OrgID, space.OrganizationGuid)
 	}
 	return nil
+}
+
+func (b *backend) getOrgName(client *cfclient.Client, cfCert *models.CFCertificate) (string, error) {
+
+	org, err := client.GetOrgByGuid(cfCert.OrgID)
+	if err != nil {
+		return "", err
+	}
+
+	return org.Name, nil
+
+}
+
+func (b *backend) getAppName(client *cfclient.Client, cfCert *models.CFCertificate) (string, error) {
+
+	app, err := client.AppByGuid(cfCert.AppID)
+	if err != nil {
+		return "", err
+	}
+
+	return app.Name, nil
+
+}
+
+func (b *backend) getSpaceName(client *cfclient.Client, cfCert *models.CFCertificate) (string, error) {
+
+	space, err := client.GetSpaceByGuid(cfCert.SpaceID)
+	if err != nil {
+		return "", err
+	}
+
+	return space.Name, nil
+
 }
 
 func meetsBoundConstraints(certValue string, constraints []string) bool {
