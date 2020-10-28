@@ -17,6 +17,9 @@ const (
 	FoundAppGUID     = "2d3e834a-3a25-4591-974c-fa5626d5d0a1"
 	FoundOrgGUID     = "34a878d0-c2f9-4521-ba73-a9f664e82c7bf"
 	FoundSpaceGUID   = "3d2eba6b-ef19-44d5-91dd-1975b0db5cc9"
+	FoundAppName     = "name-2401"
+	FoundSpaceName   = "cfdev-space"
+	FoundOrgName     = "system"
 
 	UnfoundServiceGUID = "service-id-unfound"
 	UnfoundAppGUID     = "app-id-unfound"

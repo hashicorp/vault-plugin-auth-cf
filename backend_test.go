@@ -554,6 +554,15 @@ func (e *Env) Login(t *testing.T) {
 	if resp.Auth.Alias.Metadata["space_id"] != cf.FoundSpaceGUID {
 		t.Fatalf("expected %s but received %s", cf.FoundSpaceGUID, resp.Auth.Alias.Metadata["space_id"])
 	}
+	if resp.Auth.Alias.Metadata["org_name"] != cf.FoundOrgName {
+		t.Fatalf("expected %s but received %s", cf.FoundOrgName, resp.Auth.Alias.Metadata["org_name"])
+	}
+	if resp.Auth.Alias.Metadata["app_name"] != cf.FoundAppName {
+		t.Fatalf("expected %s but received %s", cf.FoundAppName, resp.Auth.Alias.Metadata["app_name"])
+	}
+	if resp.Auth.Alias.Metadata["space_name"] != cf.FoundSpaceName {
+		t.Fatalf("expected %s but received %s", cf.FoundSpaceName, resp.Auth.Alias.Metadata["space_name"])
+	}
 	if resp.Auth.InternalData["ip_addresses"] != nil {
 		t.Fatalf("expected %s but received %s", "", resp.Auth.InternalData["ip_addresses"])
 	}
