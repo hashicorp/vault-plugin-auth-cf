@@ -47,7 +47,7 @@ func TestBackend(t *testing.T) {
 		CFUsername:             cf.AuthUsername,
 		CFPassword:             cf.AuthPassword,
 		CFClientID:             cf.AuthClientID,
-		CFClientSecret:         cf.AuthClientSecrete,
+		CFClientSecret:         cf.AuthClientSecret,
 		LoginMaxSecNotBefore:   5,
 		LoginMaxSecNotAfter:    1,
 	}
