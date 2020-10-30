@@ -15,7 +15,7 @@ func main() {
 	fmt.Println("username is " + cf.AuthUsername)
 	fmt.Println("password is " + cf.AuthPassword)
 	fmt.Println("client id is " + cf.AuthClientID)
-	fmt.Println("client secret is " + cf.AuthClientSecrete)
+	fmt.Println("client secret is " + cf.AuthClientSecret)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
