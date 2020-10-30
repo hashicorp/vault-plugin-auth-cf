@@ -11,6 +11,8 @@ type Configuration struct {
 	//		PCFPassword string `json:"pcf_password"`
 	// Version 1 is the present version and it adds support for the following fields:
 	//		CFAPICertificates []string `json:"cf_api_trusted_certificates"`
+	//		CFMutualTLSCertificate []string `json:"cf_api_mutual_tls_certificate"`
+	//		CFMutualTLSKey *string `json:"cf_api_mutual_tls_key"`
 	//		CFAPIAddr string `json:"cf_api_addr"`
 	//		CFUsername string `json:"cf_username"`
 	//		CFPassword string `json:"cf_password"`
@@ -22,6 +24,12 @@ type Configuration struct {
 
 	// IdentityCACertificates that, if presented by the CF API, should be trusted.
 	CFAPICertificates []string `json:"cf_api_trusted_certificates"`
+
+	// CFMutualTLSCertificate is the certificate that is used to perform mTLS with the CF API.
+	CFMutualTLSCertificate string `json:"cf_api_mutual_tls_certificate"`
+
+	// CFMutualTLSKey is the key that is used to perform mTLS with the CF API.
+	CFMutualTLSKey string `json:"cf_api_mutual_tls_key"`
 
 	// CFAPIAddr is the address of CF's API, ex: "https://api.dev.cfdev.sh" or "http://127.0.0.1:33671"
 	CFAPIAddr string `json:"cf_api_addr"`

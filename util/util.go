@@ -39,6 +39,20 @@ func NewCFClient(config *models.Configuration) (*cfclient.Client, error) {
 	tlsConfig := &tls.Config{
 		RootCAs: rootCAs,
 	}
+
+	if config.CFMutualTLSCertificate != "" && config.CFMutualTLSKey != "" {
+		cert, err := tls.X509KeyPair(
+			[]byte(config.CFMutualTLSCertificate),
+			[]byte(config.CFMutualTLSKey),
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("could not parse X509 key pair for mutual TLS")
+		}
+
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+
 	clientConf.HttpClient.Transport = &http.Transport{TLSClientConfig: tlsConfig}
 	return cfclient.NewClient(clientConf)
 }
