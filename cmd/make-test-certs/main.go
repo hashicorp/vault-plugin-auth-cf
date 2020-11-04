@@ -20,7 +20,16 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	mtlsCerts, err := certificates.GenerateMTLS()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	fmt.Printf("path to CA cert to configure in Vault: %s\n", testCerts.PathToCACertificate)
 	fmt.Printf("path to cert to use as CF_INSTANCE_CERT: %s\n", testCerts.PathToInstanceCertificate)
 	fmt.Printf("path to key to use as CF_INSTANCE_KEY: %s\n", testCerts.PathToInstanceKey)
+	fmt.Printf("path to CA cert for mock CF server to trust: %s\n", mtlsCerts.PathToSigningCA)
+	fmt.Printf("path to cert for Vault to use in mTLS: %s\n", mtlsCerts.PathToCertificate)
+	fmt.Printf("path to private key for Vault to use in mTLS: %s\n", mtlsCerts.PathToPrivateKey)
 }
