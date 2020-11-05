@@ -46,6 +46,8 @@ func TestBackend(t *testing.T) {
 		CFAPIAddr:              cfServer.URL,
 		CFUsername:             cf.AuthUsername,
 		CFPassword:             cf.AuthPassword,
+		CFClientID:             cf.AuthClientID,
+		CFClientSecret:         cf.AuthClientSecret,
 		LoginMaxSecNotBefore:   5,
 		LoginMaxSecNotAfter:    1,
 	}
@@ -168,6 +170,8 @@ func (e *Env) CreateConfig(t *testing.T) {
 			"cf_api_addr":                  e.TestConf.CFAPIAddr,
 			"cf_username":                  e.TestConf.CFUsername,
 			"cf_password":                  e.TestConf.CFPassword,
+			"cf_client_id":                 e.TestConf.CFClientID,
+			"cf_client_secret":             e.TestConf.CFClientSecret,
 			"login_max_seconds_not_before": 12,
 			"login_max_seconds_not_after":  13,
 		},
@@ -207,6 +211,12 @@ func (e *Env) ReadConfig(t *testing.T) {
 	}
 	if resp.Data["cf_password"] != nil {
 		t.Fatalf("expected %s but received %s", "nil", resp.Data["cf_password"])
+	}
+	if resp.Data["cf_client_id"] != e.TestConf.CFClientID {
+		t.Fatalf("expected %s but received %s", e.TestConf.CFClientID, resp.Data["cf_client_id"])
+	}
+	if resp.Data["cf_client_secret"] != nil {
+		t.Fatalf("expected %s but received %s", "nil", resp.Data["cf_client_secret"])
 	}
 }
 
@@ -255,6 +265,12 @@ func (e *Env) ReadUpdatedConfig(t *testing.T) {
 	}
 	if resp.Data["cf_password"] != nil {
 		t.Fatalf("expected %s but received %s", "", resp.Data["cf_password"])
+	}
+	if resp.Data["cf_client_id"] != e.TestConf.CFClientID {
+		t.Fatalf("expected %s but received %s", e.TestConf.CFClientID, resp.Data["cf_client_id"])
+	}
+	if resp.Data["cf_client_secret"] != nil {
+		t.Fatalf("expected %s but received %s", "", resp.Data["cf_client_secret"])
 	}
 }
 
