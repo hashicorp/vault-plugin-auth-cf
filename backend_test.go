@@ -38,7 +38,7 @@ func TestBackend(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfServer := cf.MockServer(false)
+	cfServer := cf.MockServer(false, nil)
 	defer cfServer.Close()
 
 	testConf := &models.Configuration{
@@ -48,6 +48,98 @@ func TestBackend(t *testing.T) {
 		CFPassword:             cf.AuthPassword,
 		CFClientID:             cf.AuthClientID,
 		CFClientSecret:         cf.AuthClientSecret,
+		LoginMaxSecNotBefore:   5,
+		LoginMaxSecNotAfter:    1,
+	}
+
+	backend, err := Factory(ctx, &logical.BackendConfig{
+		StorageView: storage,
+		Logger:      hclog.Default(),
+		System: &logical.StaticSystemView{
+			DefaultLeaseTTLVal: time.Hour,
+			MaxLeaseTTLVal:     time.Hour,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsedCIDRs, err := parseutil.ParseAddrs([]string{"10.255.181.105/24"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	env := &Env{
+		Ctx:      ctx,
+		Storage:  storage,
+		Backend:  backend,
+		TestConf: testConf,
+		TestRole: &models.RoleEntry{
+			BoundAppIDs:      []string{cf.FoundAppGUID},
+			BoundSpaceIDs:    []string{cf.FoundSpaceGUID},
+			BoundOrgIDs:      []string{cf.FoundOrgGUID},
+			BoundInstanceIDs: []string{cf.FoundServiceGUID},
+			BoundCIDRs:       parsedCIDRs,
+			Policies:         []string{"default", "foo"},
+			TTL:              60,
+			MaxTTL:           2 * 60,
+			Period:           5 * 60,
+		},
+		TestCerts: testCerts,
+	}
+	// Exercise all the endpoints.
+	t.Run("create old config", env.StoreV0Config)
+	t.Run("read old config", env.ReadV0Config)
+	t.Run("create config", env.CreateConfig)
+	t.Run("read config", env.ReadConfig)
+	t.Run("update config", env.UpdateConfig)
+	t.Run("read updated config", env.ReadUpdatedConfig)
+	t.Run("delete config", env.DeleteConfig)
+	t.Run("create role", env.CreateRole)
+	t.Run("update role", env.UpdateRole)
+	t.Run("read role", env.ReadRole)
+	t.Run("list roles", env.ListRoles)
+	t.Run("delete role", env.DeleteRole)
+
+	// Actually perform the flow needed to log in.
+	t.Run("create config", env.CreateConfig)
+	t.Run("create role", env.CreateRole)
+	t.Run("login", env.Login)
+}
+
+func TestBackendMTLS(t *testing.T) {
+	ctx := context.Background()
+	storage := &logical.InmemStorage{}
+
+	testCerts, err := certificates.Generate(cf.FoundServiceGUID, cf.FoundOrgGUID, cf.FoundSpaceGUID, cf.FoundAppGUID, "10.255.181.105")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mtlsTestCerts, err := certificates.GenerateMTLS()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := testCerts.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	invalidCaCertBytes, err := ioutil.ReadFile("testdata/real-certificates/ca.crt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfServer := cf.MockServer(false, []string{mtlsTestCerts.SigningCA})
+	defer cfServer.Close()
+
+	testConf := &models.Configuration{
+		IdentityCACertificates: []string{testCerts.CACertificate, string(invalidCaCertBytes)},
+		CFMutualTLSCertificate: mtlsTestCerts.Certificate,
+		CFMutualTLSKey:         mtlsTestCerts.PrivateKey,
+		CFAPIAddr:              cfServer.URL,
+		CFUsername:             cf.AuthUsername,
+		CFPassword:             cf.AuthPassword,
 		LoginMaxSecNotBefore:   5,
 		LoginMaxSecNotAfter:    1,
 	}
@@ -166,14 +258,16 @@ func (e *Env) CreateConfig(t *testing.T) {
 		Path:      "config",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"identity_ca_certificates":     e.TestConf.IdentityCACertificates,
-			"cf_api_addr":                  e.TestConf.CFAPIAddr,
-			"cf_username":                  e.TestConf.CFUsername,
-			"cf_password":                  e.TestConf.CFPassword,
-			"cf_client_id":                 e.TestConf.CFClientID,
-			"cf_client_secret":             e.TestConf.CFClientSecret,
-			"login_max_seconds_not_before": 12,
-			"login_max_seconds_not_after":  13,
+			"identity_ca_certificates":      e.TestConf.IdentityCACertificates,
+			"cf_api_mutual_tls_certificate": e.TestConf.CFMutualTLSCertificate,
+			"cf_api_mutual_tls_key":         e.TestConf.CFMutualTLSKey,
+			"cf_api_addr":                   e.TestConf.CFAPIAddr,
+			"cf_username":                   e.TestConf.CFUsername,
+			"cf_password":                   e.TestConf.CFPassword,
+			"cf_client_id":                  e.TestConf.CFClientID,
+			"cf_client_secret":              e.TestConf.CFClientSecret,
+			"login_max_seconds_not_before":  12,
+			"login_max_seconds_not_after":   13,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Ctx, req)
@@ -202,6 +296,15 @@ func (e *Env) ReadConfig(t *testing.T) {
 		if withoutNewlines(caCertRaw) != withoutNewlines(e.TestConf.IdentityCACertificates[i]) {
 			t.Fatalf("expected %q but received %q", e.TestConf.IdentityCACertificates[i], caCertRaw)
 		}
+	}
+	if resp.Data["cf_api_mutual_tls_certificate"] == nil && e.TestConf.CFMutualTLSCertificate != "" {
+		t.Fatalf("expected cf_api_mutual_tls_certificate not to be nil but received %q", resp.Data["cf_api_mutual_tls_certificate"])
+	}
+	if resp.Data["cf_api_mutual_tls_key"] != nil {
+		t.Fatalf("we don't expect cf_api_mutual_tls_key to be output but received %q", resp.Data["cf_api_mutual_tls_key"])
+	}
+	if withoutNewlines(resp.Data["cf_api_mutual_tls_certificate"].(string)) != withoutNewlines(e.TestConf.CFMutualTLSCertificate) {
+		t.Fatalf("expected %q but received %q", e.TestConf.CFMutualTLSCertificate, resp.Data["cf_api_mutual_tls_certificate"])
 	}
 	if resp.Data["cf_api_addr"] != e.TestConf.CFAPIAddr {
 		t.Fatalf("expected %s but received %s", e.TestConf.CFAPIAddr, resp.Data["cf_api_addr"])

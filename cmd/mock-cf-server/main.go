@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/hashicorp/vault-plugin-auth-cf/testing/certificates"
 	"os"
 	"os/signal"
 
@@ -9,13 +10,33 @@ import (
 )
 
 func main() {
-	server := cf.MockServer(true)
-	defer server.Close()
-	fmt.Println("running at " + server.URL)
-	fmt.Println("username is " + cf.AuthUsername)
-	fmt.Println("password is " + cf.AuthPassword)
-	fmt.Println("client id is " + cf.AuthClientID)
-	fmt.Println("client secret is " + cf.AuthClientSecret)
+	plainServer := cf.MockServer(true, nil)
+	defer plainServer.Close()
+
+	mtlsCerts, err := certificates.GenerateMTLS()
+	if err != nil {
+		fmt.Printf("could not generate certificates for mTLS: %s", err)
+		return
+	}
+	defer mtlsCerts.Close()
+
+	mtlsServer := cf.MockServer(true, []string{mtlsCerts.SigningCA})
+	defer mtlsServer.Close()
+
+	fmt.Println("plain server running at " + plainServer.URL)
+	fmt.Println("plain server username is " + cf.AuthUsername)
+	fmt.Println("plain server password is " + cf.AuthPassword)
+	fmt.Println("plain server client id is " + cf.AuthClientID)
+	fmt.Println("plain server client secret is " + cf.AuthClientSecret)
+
+	fmt.Println("mtls server is running at " + mtlsServer.URL)
+	fmt.Println("mtls server username is " + cf.AuthUsername)
+	fmt.Println("mtls server password is " + cf.AuthPassword)
+	fmt.Println("mtls server client id is " + cf.AuthClientID)
+	fmt.Println("mtls server client secret is " + cf.AuthClientSecret)
+	fmt.Println("mtls server CA path is " + mtlsCerts.PathToSigningCA)
+	fmt.Println("mtls server will trust certificate at " + mtlsCerts.PathToCertificate)
+	fmt.Println("the key for the trusted certificate is at " + mtlsCerts.PathToPrivateKey)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
