@@ -281,6 +281,41 @@ You'll see a certificate outputted as part of the response, which should be brok
 out into a separate well-formatted file like the `ca.crt` above, and used for the
 `cf_api_trusted_certificates` field.
 
+### Using mTLS with the CF API
+The CloudFoundry API is able to perform mutual TLS authentication with other components on the same internal network. In 
+a CloudFoundry deployment powered by [`cf-deployment`](https://github.com/cloudfoundry/cf-deployment), the default address for this is:
+
+```
+https://cloud-controller-ng.service.cf.internal:9023
+```
+
+`cloud-controller-ng.service.cf.internal` is also available over HTTPS on port 9024, but does not enforce mTLS. Using 
+this port when configuring the plugin for mTLS will work, but will not have any effect.
+    
+To perform mutual TLS, Vault will need to have access to a certificate and key pair signed by a CA that the CF API trusts. 
+In `cf-deployment`, this is the CA named `service_cf_internal_ca`. The certificate's involved both need to have Subject 
+Alternative Name's set, or else Golang will emit an error:
+
+```
+x509: certificate relies on legacy Common Name field, use SANs or temporarily enable Common Name matching with GODEBUG=x509ignoreCN=0
+```
+
+To mTLS with the CF API in the Vault plugin, provide the `cf_api_mutual_tls_certificate` and `cf_api_mutual_tls_key` parameters. 
+These are taken as paths to the files on disk, e.g.
+
+```
+$ vault write auth/cf/config \
+      identity_ca_certificates=@ca.crt \
+      cf_api_addr=https://cloud-controller-ng.service.cf.internal:9023 \
+      cf_username=vault \
+      cf_password=pa55word \
+      cf_api_trusted_certificates=@cfapi.crt \
+      cf_api_mutual_tls_certificate=@cloud-controller-mtls.crt \
+      cf_api_mutual_tls_key=@cloud-controller-mtls.key
+```
+
+
+
 ## Downloading the Plugin
 
 - `$ git clone git@github.com:hashicorp/vault-plugin-auth-cf.git`
