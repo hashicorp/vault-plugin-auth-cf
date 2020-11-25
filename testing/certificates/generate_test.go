@@ -1,6 +1,8 @@
 package certificates
 
 import (
+	"crypto/x509"
+	"encoding/pem"
 	"testing"
 	"time"
 
@@ -66,5 +68,43 @@ func TestGenerate(t *testing.T) {
 	}
 	if cfCert.IPAddress != "10.255.181.105" {
 		t.Fatalf("expected 10.255.181.105 but received %q", cfCert.IPAddress)
+	}
+}
+
+func TestGenerateMTLS(t *testing.T) {
+	mtlsCerts, err := GenerateMTLS()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := mtlsCerts.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	certPool := x509.NewCertPool()
+	ok := certPool.AppendCertsFromPEM([]byte(mtlsCerts.SigningCA))
+	if !ok {
+		t.Fatal("could not append CA to cert pool")
+	}
+
+	certBlock, _ := pem.Decode([]byte(mtlsCerts.Certificate))
+	if certBlock == nil {
+		t.Fatalf("could not decode signed certificate")
+	}
+
+	signedCert, err := x509.ParseCertificate(certBlock.Bytes)
+	if err != nil {
+		t.Fatalf("failed to parse certificate: %s", err)
+	}
+
+	opts := x509.VerifyOptions{
+		Roots:         certPool,
+		DNSName:       "vault",
+		Intermediates: x509.NewCertPool(),
+	}
+
+	if _, err := signedCert.Verify(opts); err != nil {
+		t.Fatalf("failed to verify signed certificate: %s", err)
 	}
 }
