@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/go-secure-stdlib/parseutil"
 	"github.com/hashicorp/vault-plugin-auth-cf/models"
 	"github.com/hashicorp/vault-plugin-auth-cf/signatures"
 	"github.com/hashicorp/vault-plugin-auth-cf/testing/certificates"
 	"github.com/hashicorp/vault-plugin-auth-cf/testing/cf"
-	"github.com/hashicorp/vault/sdk/helper/parseutil"
 	"github.com/hashicorp/vault/sdk/logical"
 )
 
@@ -209,7 +209,6 @@ type Env struct {
 }
 
 func (e *Env) StoreV0Config(t *testing.T) {
-
 	config := &models.Configuration{
 		IdentityCACertificates: e.TestConf.IdentityCACertificates,
 		PCFAPIAddr:             e.TestConf.CFAPIAddr,
