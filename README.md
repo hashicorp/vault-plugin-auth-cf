@@ -629,12 +629,14 @@ make dev
 make tools
 
 # In one shell window, run Vault with the plugin available in the catalog.
+export CF_HOME=$(pwd)
 vault server -dev -dev-root-token-id=root -dev-plugin-dir=$CF_HOME/bin -log-level=debug
 
 # In another shell window, run a mock of the CF API so the plugin's client calls won't fail.
 mock-cf-server
 
 # In another shell window, execute the following commands to exercise each endpoint.
+export CF_HOME=$(pwd)
 export VAULT_ADDR=http://localhost:8200
 export VAULT_TOKEN=root
 export MOCK_CF_SERVER_ADDR='something' # ex. http://127.0.0.1:32937
@@ -664,7 +666,7 @@ export SIGNING_TIME=$(date -u)
 export ROLE='test-role'
 vault write auth/vault-plugin-auth-cf/login \
     role=$ROLE \
-    identity_ca_certificates=@$CF_INSTANCE_CERT \
+    cf_isntance_cert=@$CF_INSTANCE_CERT \
     signing_time="$SIGNING_TIME" \
     signature=$(generate-signature)
     
