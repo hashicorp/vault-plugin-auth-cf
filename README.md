@@ -666,7 +666,7 @@ export SIGNING_TIME=$(date -u)
 export ROLE='test-role'
 vault write auth/vault-plugin-auth-cf/login \
     role=$ROLE \
-    cf_isntance_cert=@$CF_INSTANCE_CERT \
+    cf_instance_cert=@$CF_INSTANCE_CERT \
     signing_time="$SIGNING_TIME" \
     signature=$(generate-signature)
     
