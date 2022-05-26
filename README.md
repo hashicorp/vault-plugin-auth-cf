@@ -668,7 +668,7 @@ vault write auth/vault-plugin-auth-cf/login \
     role=$ROLE \
     cf_instance_cert=@$CF_INSTANCE_CERT \
     signing_time="$SIGNING_TIME" \
-    signature=$(generate-signature)
+    signature=$(generate-signature 2>&1 | awk '{print $3}')
     
 vault token renew <token>
 
