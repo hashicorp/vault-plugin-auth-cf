@@ -71,7 +71,6 @@ func (b *backend) pathLogin() *framework.Path {
 }
 
 // resolveRole resolves the role that will be used from this login request.
-// This is used as part of role-based quotas.
 func (b *backend) resolveRole(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	roleName := data.Get("role").(string)
 	if roleName == "" {
