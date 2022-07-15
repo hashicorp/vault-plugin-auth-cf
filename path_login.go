@@ -61,10 +61,32 @@ func (b *backend) pathLogin() *framework.Path {
 			logical.UpdateOperation: &framework.PathOperation{
 				Callback: b.operationLoginUpdate,
 			},
+			logical.ResolveRoleOperation: &framework.PathOperation{
+				Callback: b.resolveRole,
+			},
 		},
 		HelpSynopsis:    pathLoginSyn,
 		HelpDescription: pathLoginDesc,
 	}
+}
+
+// resolveRole resolves the role that will be used from this login request.
+// This is used as part of role-based quotas.
+func (b *backend) resolveRole(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	roleName := data.Get("role").(string)
+	if roleName == "" {
+		return logical.ErrorResponse("'role-name' is required"), nil
+	}
+
+	// Ensure the cf certificate meets the role's constraints.
+	role, err := getRole(ctx, req.Storage, roleName)
+	if err != nil {
+		return nil, err
+	}
+	if role == nil {
+		return nil, errors.New("no matching role")
+	}
+	return logical.ResolveRoleResponse(roleName)
 }
 
 // operationLoginUpdate is called by those wanting to gain access to Vault.
