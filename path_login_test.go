@@ -6,6 +6,7 @@ import (
 	"github.com/hashicorp/vault/sdk/logical"
 	"golang.org/x/net/context"
 	"net"
+	"strings"
 	"testing"
 	"time"
 )
@@ -56,6 +57,51 @@ func TestResolveRole(t *testing.T) {
 
 	if resp.Data["role"] != role {
 		t.Fatalf("Role was not as expected. Expected %s, received %s", role, resp.Data["role"])
+	}
+}
+
+func TestResolveRole_RoleDoesNotExist(t *testing.T) {
+	ctx := context.Background()
+	storage := &logical.InmemStorage{}
+
+	backend, err := Factory(ctx, &logical.BackendConfig{
+		StorageView: storage,
+		Logger:      hclog.Default(),
+		System: &logical.StaticSystemView{
+			DefaultLeaseTTLVal: time.Hour,
+			MaxLeaseTTLVal:     time.Hour,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	role := "testrole"
+
+	loginData := map[string]interface{}{
+		"role": role,
+	}
+	loginReq := &logical.Request{
+		Operation: logical.ResolveRoleOperation,
+		Path:      "login",
+		Storage:   storage,
+		Data:      loginData,
+		Connection: &logical.Connection{
+			RemoteAddr: "127.0.0.1",
+		},
+	}
+
+	resp, err := backend.HandleRequest(context.Background(), loginReq)
+	if resp == nil && !resp.IsError() {
+		t.Fatalf("Response was not an error: err:%v resp:%#v", err, resp)
+	}
+
+	errString, ok := resp.Data["error"].(string)
+	if !ok {
+		t.Fatal("Error not part of response.")
+	}
+
+	if !strings.Contains(errString, "invalid role name") {
+		t.Fatalf("Error was not due to invalid role name. Error: %s", errString)
 	}
 }
 

@@ -74,7 +74,7 @@ func (b *backend) pathLogin() *framework.Path {
 func (b *backend) resolveRole(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	roleName := data.Get("role").(string)
 	if roleName == "" {
-		return logical.ErrorResponse("'role-name' is required"), nil
+		return logical.ErrorResponse("role is required"), nil
 	}
 
 	// Ensure the cf certificate meets the role's constraints.
@@ -83,7 +83,7 @@ func (b *backend) resolveRole(ctx context.Context, req *logical.Request, data *f
 		return nil, err
 	}
 	if role == nil {
-		return nil, errors.New("no matching role")
+		return logical.ErrorResponse(fmt.Sprintf("invalid role name %q", roleName)), nil
 	}
 	return logical.ResolveRoleResponse(roleName)
 }
