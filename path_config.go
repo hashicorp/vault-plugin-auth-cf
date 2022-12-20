@@ -150,11 +150,8 @@ Set low to reduce the opportunity for replay attacks.`,
 			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
-			logical.CreateOperation: &framework.PathOperation{
-				Callback: b.operationConfigCreateUpdate,
-			},
 			logical.UpdateOperation: &framework.PathOperation{
-				Callback: b.operationConfigCreateUpdate,
+				Callback: b.operationConfigWrite,
 			},
 			logical.ReadOperation: &framework.PathOperation{
 				Callback: b.operationConfigRead,
@@ -168,7 +165,7 @@ Set low to reduce the opportunity for replay attacks.`,
 	}
 }
 
-func (b *backend) operationConfigCreateUpdate(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) operationConfigWrite(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	config, err := config(ctx, req.Storage)
 	if err != nil {
 		return nil, err
