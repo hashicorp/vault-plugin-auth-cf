@@ -253,7 +253,7 @@ func (e *Env) ReadV0Config(t *testing.T) {
 
 func (e *Env) CreateConfig(t *testing.T) {
 	req := &logical.Request{
-		Operation: logical.CreateOperation,
+		Operation: logical.UpdateOperation,
 		Path:      "config",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{

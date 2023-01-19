@@ -15,5 +15,6 @@ require (
 	github.com/hashicorp/vault/sdk v0.5.3
 	github.com/hashicorp/yamux v0.0.0-20181012175058-2f1d1f20f75d // indirect
 	github.com/pkg/errors v0.9.1
+	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/sys v0.0.0-20220422013727-9388b58f7150 // indirect
 )
