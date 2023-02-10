@@ -1,3 +1,6 @@
+// Copyright (c) HashiCorp, Inc.
+// SPDX-License-Identifier: MPL-2.0
+
 package certificates
 
 import (
@@ -26,15 +29,16 @@ import (
 // Usage:
 //
 // testCerts, err := certificates.Generate(...)
-// if err != nil {
-// 		...
-// }
-// defer func(){
-// 		if err := testCerts.Close(); err != nil {
-//			...
-// 		}
-// }()
 //
+//	if err != nil {
+//			...
+//	}
+//
+//	defer func(){
+//			if err := testCerts.Close(); err != nil {
+//				...
+//			}
+//	}()
 func Generate(instanceID, orgID, spaceID, appID, ipAddress string) (*TestCertificates, error) {
 	caCert, instanceCert, instanceKey, err := generate(instanceID, orgID, spaceID, appID, ipAddress)
 	if err != nil {
