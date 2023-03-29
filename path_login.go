@@ -24,6 +24,10 @@ import (
 func (b *backend) pathLogin() *framework.Path {
 	return &framework.Path{
 		Pattern: "login",
+		DisplayAttrs: &framework.DisplayAttributes{
+			OperationPrefix: operationPrefixCloudFoundry,
+			OperationVerb:   "log-in",
+		},
 		Fields: map[string]*framework.FieldSchema{
 			"role": {
 				Required: true,

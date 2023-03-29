@@ -16,6 +16,9 @@ const (
 	// outside packages.
 	EnvVarInstanceCertificate = "CF_INSTANCE_CERT"
 	EnvVarInstanceKey         = "CF_INSTANCE_KEY"
+
+	// operationPrefixCloudFoundry is used as a prefix for OpenAPI operation id's.
+	operationPrefixCloudFoundry = "cloud-foundry"
 )
 
 func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend, error) {
