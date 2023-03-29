@@ -1,8 +1,6 @@
 TOOL?=vault-plugin-auth-cf
 TEST?=$$(go list ./... | grep -v /vendor/ | grep -v teamcity)
-VETARGS?=-asmdecl -atomic -bool -buildtags -copylocks -methods -nilfunc -printf -rangeloops -shift -structtags -unsafeptr
-EXTERNAL_TOOLS=\
-	github.com/mitchellh/gox
+EXTERNAL_TOOLS=
 BUILD_TAGS?=${TOOL}
 GOFMT_FILES?=$$(find . -name '*.go' | grep -v vendor)
 
