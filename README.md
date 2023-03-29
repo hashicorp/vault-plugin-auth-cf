@@ -7,8 +7,8 @@ for authenticating to Vault.
 
 This plugin's docs reside in the following places:
 
-- [Overview](https://www.vaultproject.io/docs/auth/cf.html)
-- [API](https://www.vaultproject.io/api/auth/cf/index.html)
+- [Overview](https://developer.hashicorp.com/vault/docs/auth/cf)
+- [API](https://developer.hashicorp.com/vault/api-docs/auth/cf)
 
 The documentation below is intended to further elaborate, and is targeted at those developing, using,
 troubleshooting, and maintaining this plugin.
