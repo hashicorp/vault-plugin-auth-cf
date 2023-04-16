@@ -20,6 +20,9 @@ const configStorageKey = "config"
 func (b *backend) pathConfig() *framework.Path {
 	return &framework.Path{
 		Pattern: "config",
+		DisplayAttrs: &framework.DisplayAttributes{
+			OperationPrefix: operationPrefixCloudFoundry,
+		},
 		Fields: map[string]*framework.FieldSchema{
 			"identity_ca_certificates": {
 				Type: framework.TypeStringSlice,
@@ -155,12 +158,21 @@ Set low to reduce the opportunity for replay attacks.`,
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.UpdateOperation: &framework.PathOperation{
 				Callback: b.operationConfigWrite,
+				DisplayAttrs: &framework.DisplayAttributes{
+					OperationVerb: "configure",
+				},
 			},
 			logical.ReadOperation: &framework.PathOperation{
 				Callback: b.operationConfigRead,
+				DisplayAttrs: &framework.DisplayAttributes{
+					OperationSuffix: "configuration",
+				},
 			},
 			logical.DeleteOperation: &framework.PathOperation{
 				Callback: b.operationConfigDelete,
+				DisplayAttrs: &framework.DisplayAttributes{
+					OperationSuffix: "configuration",
+				},
 			},
 		},
 		HelpSynopsis:    pathConfigSyn,

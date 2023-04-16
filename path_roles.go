@@ -18,6 +18,11 @@ const roleStoragePrefix = "roles/"
 func (b *backend) pathListRoles() *framework.Path {
 	return &framework.Path{
 		Pattern: "roles/?$",
+		DisplayAttrs: &framework.DisplayAttributes{
+			OperationPrefix: operationPrefixCloudFoundry,
+			OperationVerb:   "list",
+			OperationSuffix: "roles",
+		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.ListOperation: &framework.PathOperation{
 				Callback: b.operationRolesList,
@@ -39,6 +44,10 @@ func (b *backend) operationRolesList(ctx context.Context, req *logical.Request, 
 func (b *backend) pathRoles() *framework.Path {
 	p := &framework.Path{
 		Pattern: "roles/" + framework.GenericNameRegex("role"),
+		DisplayAttrs: &framework.DisplayAttributes{
+			OperationPrefix: operationPrefixCloudFoundry,
+			OperationSuffix: "role",
+		},
 		Fields: map[string]*framework.FieldSchema{
 			"role": {
 				Type:        framework.TypeLowerCaseString,
