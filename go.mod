@@ -1,6 +1,6 @@
 module github.com/hashicorp/vault-plugin-auth-cf
 
-go 1.19
+go 1.20
 
 require (
 	github.com/cloudfoundry-community/go-cfclient v0.0.0-20210823134051-721f0e559306
