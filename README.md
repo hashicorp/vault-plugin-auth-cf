@@ -624,9 +624,7 @@ print("v1:" + base64.b64encode(signature))
 
 ```
 # After cloning the repo, generate fake certs, a test binary, and install the tools.
-make test
-make dev
-make tools
+make test dev tools
 
 # In one shell window, run Vault with the plugin available in the catalog.
 export CF_HOME=$(pwd)
@@ -639,7 +637,7 @@ mock-cf-server
 export CF_HOME=$(pwd)
 export VAULT_ADDR=http://localhost:8200
 export VAULT_TOKEN=root
-export MOCK_CF_SERVER_ADDR='something' # ex. http://127.0.0.1:32937
+export MOCK_CF_SERVER_ADDR='something' # ex. http://127.0.0.1:32937, from mock-cf-server's log line: "plain server running at http://127.0.0.1:32937"
 
 vault auth enable vault-plugin-auth-cf
 
@@ -662,7 +660,7 @@ vault write auth/vault-plugin-auth-cf/roles/test-role \
     
 export CF_INSTANCE_CERT=$CF_HOME/testdata/fake-certificates/instance.crt
 export CF_INSTANCE_KEY=$CF_HOME/testdata/fake-certificates/instance.key
-export SIGNING_TIME=$(date -u)
+export SIGNING_TIME=$(date -u +"%a %b %d %H:%M:%S %Z %Y")
 export ROLE='test-role'
 vault write auth/vault-plugin-auth-cf/login \
     role=$ROLE \
