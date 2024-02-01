@@ -1,4 +1,16 @@
-## Unreleased
+## v0.15.2 (February 1st, 2023)
+
+IMPROVEMENTS:
+
+* Updated dependencies:
+   * `github.com/hashicorp/go-hclog` v1.5.0 -> v1.6.2
+   * `github.com/hashicorp/go-secure-stdlib/parseutil` v0.1.7 -> v0.1.8
+   * `github.com/hashicorp/go-sockaddr` v1.0.4 -> v1.0.6
+   * `github.com/hashicorp/vault/api` v1.9.2 -> v1.11.0
+   * `github.com/hashicorp/vault/sdk` v0.9.2 -> v0.10.2
+   * `github.com/docker/docker` v24.0.5 -> v25.0.2 (indirect)
+   * `golang.org/x/net` v0.14.0 -> v0.20.0
+   * `google.golang.org/grpc` v1.53.0 -> v1.61.0 (indirect)
 
 ## v0.15.1 (September 5th, 2023)
 
