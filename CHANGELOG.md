@@ -1,4 +1,4 @@
-## v0.15.2 (February 1st, 2023)
+## v0.16.0 (February 1st, 2023)
 
 IMPROVEMENTS:
 
