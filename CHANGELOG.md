@@ -1,3 +1,14 @@
+## Unreleased
+
+## v0.17.0 (May 21st, 2023)
+
+* Updated dependencies:
+   * `github.com/hashicorp/go-hclog` v1.6.2 -> v1.6.3
+   * `github.com/hashicorp/vault/api` v1.11.0 -> v1.13.0
+   * `github.com/hashicorp/vault/sdk` v0.10.2 -> v0.12.0
+   * `github.com/go-jose/go-jose` v3.0.0 -> v3.0.3
+   * `golang.org/x/net` v0.20.0` -> v0.25.0
+
 ## v0.16.0 (February 1st, 2023)
 
 IMPROVEMENTS:
