@@ -6,13 +6,12 @@ package cf
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
-	"github.com/hashicorp/vault-plugin-auth-cf/models"
-	"github.com/hashicorp/vault-plugin-auth-cf/util"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
+
+	"github.com/hashicorp/vault-plugin-auth-cf/models"
 )
 
 const configStorageKey = "config"
@@ -181,7 +180,10 @@ Set low to reduce the opportunity for replay attacks.`,
 }
 
 func (b *backend) operationConfigWrite(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	config, err := config(ctx, req.Storage)
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -313,30 +315,30 @@ func (b *backend) operationConfigWrite(ctx context.Context, req *logical.Request
 		}
 	}
 
-	// To give early and explicit feedback, make sure the config works by executing a test call
-	// and checking that the API version is supported. If they don't have API v2 running, we would
-	// probably expect a timeout of some sort below because it's first called in the NewCFClient
-	// method.
-	client, err := util.NewCFClient(config)
-	if err != nil {
-		return nil, fmt.Errorf("unable to establish an initial connection to the CF API: %s", err)
-	}
-	info, err := client.GetInfo()
-	if err != nil {
-		return nil, err
-	}
-	if !strings.HasPrefix(info.APIVersion, "2.") {
-		return nil, fmt.Errorf("the CF auth plugin only supports version 2.X.X of the CF API")
-	}
-
 	if err := storeConfig(ctx, req.Storage, config); err != nil {
 		return nil, err
 	}
+
+	// read the config back from storage to ensure that the client is updated with
+	// the storage configuration
+	config, err = getConfig(ctx, req.Storage)
+	if err != nil {
+		// should never get here
+		return nil, err
+	}
+
+	if _, err := b.updateCFClient(ctx, config); err != nil {
+		return nil, err
+	}
+
 	return nil, nil
 }
 
 func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	config, err := config(ctx, req.Storage)
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -374,14 +376,17 @@ func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request,
 }
 
 func (b *backend) operationConfigDelete(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
 	if err := req.Storage.Delete(ctx, configStorageKey); err != nil {
 		return nil, err
 	}
 	return nil, nil
 }
 
-// storedConfig may return nil without error if the user doesn't currently have a config.
-func config(ctx context.Context, storage logical.Storage) (*models.Configuration, error) {
+// getConfig returns the current configuration from storage.
+func getConfig(ctx context.Context, storage logical.Storage) (*models.Configuration, error) {
 	entry, err := storage.Get(ctx, configStorageKey)
 	if err != nil {
 		return nil, err
