@@ -12,13 +12,14 @@ import (
 
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/hashicorp/go-secure-stdlib/strutil"
-	"github.com/hashicorp/vault-plugin-auth-cf/models"
-	"github.com/hashicorp/vault-plugin-auth-cf/signatures"
-	"github.com/hashicorp/vault-plugin-auth-cf/util"
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/helper/cidrutil"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/pkg/errors"
+
+	"github.com/hashicorp/vault-plugin-auth-cf/models"
+	"github.com/hashicorp/vault-plugin-auth-cf/signatures"
+	"github.com/hashicorp/vault-plugin-auth-cf/util"
 )
 
 func (b *backend) pathLogin() *framework.Path {
@@ -147,7 +148,7 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
-	config, err := config(ctx, req.Storage)
+	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +200,7 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		b.Logger().Debug(fmt.Sprintf("handling login attempt from %+v", cfCert))
 	}
 
-	client, err := util.NewCFClient(config)
+	client, err := b.getCFClient(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +253,7 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 }
 
 func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	config, err := config(ctx, req.Storage)
+	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
 	}
@@ -301,7 +302,7 @@ func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data
 	// Reconstruct the certificate and ensure it still meets all constraints.
 	cfCert, err := models.NewCFCertificate(instanceID, orgID, spaceID, appID, ipAddr)
 
-	client, err := util.NewCFClient(config)
+	client, err := b.getCFClient(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -8,21 +8,28 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net/http/httptest"
 	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-secure-stdlib/parseutil"
+	"github.com/hashicorp/vault/sdk/logical"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"github.com/hashicorp/vault-plugin-auth-cf/models"
 	"github.com/hashicorp/vault-plugin-auth-cf/signatures"
 	"github.com/hashicorp/vault-plugin-auth-cf/testing/certificates"
 	"github.com/hashicorp/vault-plugin-auth-cf/testing/cf"
-	"github.com/hashicorp/vault/sdk/logical"
 )
 
 func TestBackend(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	storage := &logical.InmemStorage{}
 
@@ -110,6 +117,8 @@ func TestBackend(t *testing.T) {
 }
 
 func TestBackendMTLS(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	storage := &logical.InmemStorage{}
 
@@ -707,4 +716,266 @@ func (e *Env) Login(t *testing.T) {
 // is functional, we decided to ignore newlines when comparing the values of strings.
 func withoutNewlines(s string) string {
 	return strings.Replace(s, "\n", "", -1)
+}
+
+type cfClientTest struct {
+	name           string
+	config         *models.Configuration
+	lastConfigHash *[32]byte
+	setConfigHash  bool
+	cfClient       *cfclient.Client
+	wantUpdated    bool
+	withMockServer bool
+	wantErr        assert.ErrorAssertionFunc
+}
+
+func Test_backend_updateCFClient(t *testing.T) {
+	t.Parallel()
+
+	cfg1 := &models.Configuration{
+		CFAPIAddr:  "https://api.example.com",
+		CFUsername: "admin",
+		CFPassword: "password",
+	}
+
+	cfg1Hash, err := cfg1.Hash()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ctx := context.Background()
+	tests := []cfClientTest{
+		{
+			name:    "invalid-nil-config",
+			wantErr: assert.Error,
+		},
+		{
+			name:           "not-updated-config-hash-match",
+			config:         cfg1,
+			cfClient:       &cfclient.Client{},
+			lastConfigHash: &cfg1Hash,
+			wantErr:        assert.NoError,
+		},
+		{
+			name:           "updated-config-hash-match-nil-client",
+			config:         cfg1,
+			wantErr:        assert.NoError,
+			wantUpdated:    true,
+			withMockServer: true,
+		},
+		{
+			name:           "updated-config-hash-change",
+			config:         cfg1,
+			lastConfigHash: &cfg1Hash,
+			cfClient:       &cfclient.Client{},
+			wantErr:        assert.NoError,
+			wantUpdated:    true,
+			withMockServer: true,
+		},
+		{
+			name:           "updated-new-client",
+			config:         cfg1,
+			wantErr:        assert.NoError,
+			wantUpdated:    true,
+			withMockServer: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &backend{
+				lastConfigHash: tt.lastConfigHash,
+				cfClient:       tt.cfClient,
+			}
+
+			var s *httptest.Server
+			var expectConfigHash [32]byte
+
+			if tt.lastConfigHash != nil && !tt.setConfigHash {
+				expectConfigHash = *tt.lastConfigHash
+			}
+
+			if tt.withMockServer {
+				require.NotNil(t, tt.config, "test %s: config is nil", tt.name)
+				s = cf.MockServer(false, nil)
+				t.Cleanup(func() {
+					if s != nil {
+						s.Close()
+					}
+
+				})
+
+				tt.config.CFAPIAddr = s.URL
+				expectConfigHash, err = tt.config.Hash()
+				if err != nil {
+					require.FailNow(t, err.Error())
+				}
+
+				if tt.setConfigHash {
+					b.lastConfigHash = &expectConfigHash
+				}
+			}
+
+			updated, err := b.updateCFClient(ctx, tt.config)
+			if !tt.wantErr(t, err, fmt.Sprintf("updateCFClient(%v, %v)", ctx, tt.config)) {
+				return
+			}
+
+			assert.Equalf(t, tt.wantUpdated, updated, "updateCFClient(%v, %v)", ctx, tt.config)
+
+			if err != nil {
+				return
+			}
+
+			assert.Equalf(t, expectConfigHash, *b.lastConfigHash, "updateCFClient(%v, %v)", ctx, tt.config)
+			assert.NotNil(t, b.cfClient, "updateCFClient(%v, %v)", ctx, tt.config)
+
+			// test again, should not update
+			updated, err = b.updateCFClient(ctx, tt.config)
+			if assert.NoError(t, err) {
+				assert.False(t, updated)
+			}
+			assert.Equalf(t, expectConfigHash, *b.lastConfigHash, "updateCFClient(%v, %v)", ctx, tt.config)
+			assert.NotNil(t, b.cfClient, "updateCFClient(%v, %v)", ctx, tt.config)
+		})
+	}
+}
+
+func Test_backend_newCFClient(t *testing.T) {
+	t.Parallel()
+
+	ca, _, err := GenerateCA()
+	require.NoErrorf(t, err, "GenerateCA()")
+
+	ctx := context.Background()
+	tests := []cfClientTest{
+		{
+			name:    "invalid-nil-config",
+			wantErr: assert.Error,
+		},
+		{
+			name: "invalid-api-addr",
+			config: &models.Configuration{
+				CFAPIAddr:  "https://127.0.0.1:12345",
+				CFUsername: "admin",
+				CFPassword: "password",
+			},
+			wantErr: func(t assert.TestingT, err error, msgAndArgs ...any) bool {
+				// expect the error returned by the call to cfclient.NewClient(), which gets the
+				// /v2/info on initialization. We will need to adapt/drop this test when we
+				// upgrade to v3 of the client.
+				return assert.ErrorContains(t, err,
+					"Could not get api /v2/info: Get", msgAndArgs...)
+			},
+		},
+		{
+			name: "invalid-ca-certificate",
+			config: &models.Configuration{
+				CFUsername: "admin",
+				CFPassword: "password",
+				CFAPICertificates: []string{
+					string(ca),
+					string(ca[len(ca)-1]),
+				},
+			},
+			wantErr: func(t assert.TestingT, err error, msgAndArgs ...any) bool {
+				return assert.ErrorContains(t, err,
+					"failed to append CF API cert to cert pool, index=1", msgAndArgs...)
+			},
+		},
+		{
+			name: "valid-client",
+			config: &models.Configuration{
+				CFAPIAddr:  "https://api.example.com",
+				CFUsername: "admin",
+				CFPassword: "password",
+				CFAPICertificates: []string{
+					string(ca),
+				},
+			},
+			withMockServer: true,
+			wantErr:        assert.NoError,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &backend{}
+			var s *httptest.Server
+			if tt.withMockServer {
+				require.NotNil(t, tt.config, "test %s: config is nil", tt.name)
+				s = cf.MockServer(false, nil)
+				t.Cleanup(func() {
+					if s != nil {
+						s.Close()
+					}
+
+				})
+
+				tt.config.CFAPIAddr = s.URL
+			}
+
+			got, err := b.newCFClient(ctx, tt.config)
+			if !tt.wantErr(t, err, fmt.Sprintf("newCFClient(%v, %v)", ctx, tt.config)) {
+				return
+			}
+
+			if err != nil {
+				assert.Nilf(t, got, "newCFClient(%v, %v)", ctx, tt.config)
+			} else {
+				assert.NotNilf(t, got, "newCFClient(%v, %v)", ctx, tt.config)
+			}
+
+			assert.Nilf(t, b.cfClient, "newCFClient(%v, %v)", ctx, tt.config)
+			assert.Nilf(t, b.lastConfigHash, "newCFClient(%v, %v)", ctx, tt.config)
+			assert.Nilf(t, b.cfClient, "newCFClient(%v, %v)", ctx, tt.config)
+		})
+	}
+}
+
+func Test_backend_getCFClient(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+
+	defaultClient := &cfclient.Client{
+		Config: cfclient.Config{
+			ApiAddress: "https://api.example.com",
+		},
+		Endpoint: cfclient.Endpoint{},
+	}
+	tests := []struct {
+		name     string
+		cfClient *cfclient.Client
+		want     *cfclient.Client
+		wantErr  assert.ErrorAssertionFunc
+	}{
+		{
+			name:     "valid-client",
+			cfClient: defaultClient,
+			want:     defaultClient,
+			wantErr:  assert.NoError,
+		},
+		{
+			name:     "invalid-nil-client",
+			cfClient: nil,
+			wantErr:  assert.Error,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &backend{
+				cfClient: tt.cfClient,
+			}
+			got, err := b.getCFClient(ctx)
+			if !tt.wantErr(t, err, fmt.Sprintf("getCFClient(%v)", ctx)) {
+				return
+			}
+
+			assert.Equalf(t, tt.want, got, "getCFClient(%v)", ctx)
+			if err == nil {
+				got, err = b.getCFClient(ctx)
+				assert.NoErrorf(t, err, "getCFClient(%v)", ctx)
+				assert.Equalf(t, tt.want, got, "getCFClient(%v)", ctx)
+			}
+		})
+	}
 }

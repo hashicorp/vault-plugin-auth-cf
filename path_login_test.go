@@ -4,17 +4,21 @@
 package cf
 
 import (
-	"github.com/hashicorp/go-hclog"
-	"github.com/hashicorp/vault-plugin-auth-cf/models"
-	"github.com/hashicorp/vault/sdk/logical"
-	"golang.org/x/net/context"
 	"net"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hashicorp/go-hclog"
+	"github.com/hashicorp/vault/sdk/logical"
+	"golang.org/x/net/context"
+
+	"github.com/hashicorp/vault-plugin-auth-cf/models"
 )
 
 func TestResolveRole(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	storage := &logical.InmemStorage{}
 
@@ -64,6 +68,8 @@ func TestResolveRole(t *testing.T) {
 }
 
 func TestResolveRole_RoleDoesNotExist(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	storage := &logical.InmemStorage{}
 
@@ -109,6 +115,8 @@ func TestResolveRole_RoleDoesNotExist(t *testing.T) {
 }
 
 func TestMatchesIPAddr(t *testing.T) {
+	t.Parallel()
+
 	certIP := net.ParseIP("10.255.181.105")
 	if !matchesIPAddress("10.255.181.105/32", certIP) {
 		t.Fatal("should match")
@@ -128,6 +136,8 @@ func TestMatchesIPAddr(t *testing.T) {
 }
 
 func TestMeetsBoundConstraints(t *testing.T) {
+	t.Parallel()
+
 	if !meetsBoundConstraints("fizz", []string{"fizz", "buzz"}) {
 		t.Fatal("should meet constraints")
 	}

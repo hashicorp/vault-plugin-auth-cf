@@ -3,7 +3,12 @@
 
 package models
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+
+	"golang.org/x/crypto/blake2b"
+)
 
 // Configuration is the config as it's reflected in Vault's storage system.
 type Configuration struct {
@@ -68,4 +73,15 @@ type Configuration struct {
 
 	// Deprecated: use CFPassword instead.
 	PCFPassword string `json:"pcf_password"`
+}
+
+// Hash returns a hash of the configuration as a BLAKE2b-256 checksum.
+func (c *Configuration) Hash() ([32]byte, error) {
+	var configHash [32]byte
+	cb, err := json.Marshal(c)
+	if err != nil {
+		return configHash, err
+	}
+
+	return blake2b.Sum256(cb), nil
 }
