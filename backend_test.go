@@ -957,7 +957,9 @@ func Test_backend_getCFClient(t *testing.T) {
 		{
 			name:     "invalid-nil-client",
 			cfClient: nil,
-			wantErr:  assert.Error,
+			wantErr: func(t assert.TestingT, err error, i ...interface{}) bool {
+				return assert.ErrorIs(t, err, errCFClientNotInitialized, i...)
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -976,6 +978,94 @@ func Test_backend_getCFClient(t *testing.T) {
 				assert.NoErrorf(t, err, "getCFClient(%v)", ctx)
 				assert.Equalf(t, tt.want, got, "getCFClient(%v)", ctx)
 			}
+		})
+	}
+}
+
+func Test_backend_getCFClientOrRefresh(t *testing.T) {
+	t.Parallel()
+
+	cfg1 := &models.Configuration{
+		CFAPIAddr:  "https://api.example.com",
+		CFUsername: "admin",
+		CFPassword: "password",
+	}
+
+	ctx := context.Background()
+	tests := []cfClientTest{
+		{
+			name:    "invalid-nil-config",
+			wantErr: assert.Error,
+		},
+		{
+			name:           "valid-config-hash-match",
+			config:         cfg1,
+			setConfigHash:  true,
+			withMockServer: true,
+			cfClient:       &cfclient.Client{},
+			wantErr:        assert.NoError,
+		},
+		{
+			name:           "updated-new-client",
+			config:         cfg1,
+			wantErr:        assert.NoError,
+			withMockServer: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &backend{
+				lastConfigHash: tt.lastConfigHash,
+				cfClient:       tt.cfClient,
+			}
+
+			var s *httptest.Server
+			var expectConfigHash [32]byte
+			var err error
+
+			if tt.lastConfigHash != nil && !tt.setConfigHash {
+				expectConfigHash = *tt.lastConfigHash
+			}
+
+			if tt.withMockServer {
+				require.NotNil(t, tt.config, "test %s: config is nil", tt.name)
+				s = cf.MockServer(false, nil)
+				t.Cleanup(func() {
+					if s != nil {
+						s.Close()
+					}
+
+				})
+
+				tt.config.CFAPIAddr = s.URL
+				expectConfigHash, err = tt.config.Hash()
+				if err != nil {
+					require.FailNow(t, err.Error())
+				}
+
+				if tt.setConfigHash {
+					b.lastConfigHash = &expectConfigHash
+				}
+			}
+
+			c, err := b.getCFClientOrRefresh(ctx, tt.config)
+			if !tt.wantErr(t, err, fmt.Sprintf("getCFClientOrRefresh(%v, %v)", ctx, tt.config)) {
+				return
+			}
+
+			if err != nil {
+				assert.Nilf(t, c, "getCFClientOrRefresh(%v, %v)", ctx, tt.config)
+				assert.Nilf(t, b.lastConfigHash, "getCFClientOrRefresh(%v, %v)", ctx, tt.config)
+				return
+			}
+
+			assert.Equalf(t, b.cfClient, c, "getCFClientOrRefresh(%v, %v)", ctx, tt.config)
+
+			// test again, should not update
+			c, err = b.getCFClientOrRefresh(ctx, tt.config)
+			assert.Equalf(t, b.cfClient, c, "getCFClientOrRefresh(%v, %v)", ctx, tt.config)
+			assert.Equalf(t, expectConfigHash, *b.lastConfigHash, "getCFClientOrRefresh(%v, %v)", ctx, tt.config)
+			assert.NotNilf(t, b.cfClient, "getCFClientOrRefresh(%v, %v)", ctx, tt.config)
 		})
 	}
 }

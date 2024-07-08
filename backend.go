@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -68,11 +69,13 @@ Once a CA certificate is configured, and Vault is configured to consume
 CF's API, CF's instance identity credentials can be used to authenticate.'
 `
 
+var errCFClientNotInitialized = fmt.Errorf("client is not initialized")
+
 func (b *backend) getCFClient(_ context.Context) (*cfclient.Client, error) {
 	b.cfClientMu.RLock()
 	defer b.cfClientMu.RUnlock()
 	if b.cfClient == nil {
-		return nil, fmt.Errorf("client is not initialized")
+		return nil, errCFClientNotInitialized
 	}
 
 	return b.cfClient, nil
@@ -110,6 +113,25 @@ func (b *backend) updateCFClient(ctx context.Context, config *models.Configurati
 	b.lastConfigHash = &configHash
 
 	return true, nil
+}
+
+func (b *backend) getCFClientOrRefresh(ctx context.Context, config *models.Configuration) (*cfclient.Client, error) {
+	if config == nil {
+		return nil, fmt.Errorf("configuration is nil")
+	}
+
+	client, err := b.getCFClient(ctx)
+	if err != nil {
+		if errors.Is(err, errCFClientNotInitialized) {
+			if _, err := b.updateCFClient(ctx, config); err != nil {
+				return nil, err
+			}
+			return b.getCFClient(ctx)
+		}
+		return nil, err
+	}
+
+	return client, nil
 }
 
 func (b *backend) newCFClient(_ context.Context, config *models.Configuration) (*cfclient.Client, error) {
@@ -168,6 +190,8 @@ func (b *backend) newCFClient(_ context.Context, config *models.Configuration) (
 }
 
 func (b *backend) initialize(ctx context.Context, req *logical.InitializationRequest) error {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
 		b.Logger().Warn("init: failed to get the config from storage", "error", err)
