@@ -1,5 +1,6 @@
 TOOL?=vault-plugin-auth-cf
-TEST?=$$(go list ./... | grep -v /vendor/ | grep -v teamcity)
+TEST?=$$(go list ./...)
+TESTARGS  ?= '-test.v'
 EXTERNAL_TOOLS=
 BUILD_TAGS?=${TOOL}
 GOFMT_FILES?=$$(find . -name '*.go' | grep -v vendor)
