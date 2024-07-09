@@ -328,7 +328,7 @@ func (b *backend) operationConfigWrite(ctx context.Context, req *logical.Request
 	}
 
 	if _, err := b.updateCFClient(ctx, config); err != nil {
-		return nil, err
+		return logical.ErrorResponse(err.Error()), nil
 	}
 
 	return nil, nil
