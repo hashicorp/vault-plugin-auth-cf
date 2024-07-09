@@ -192,6 +192,11 @@ func (b *backend) newCFClient(_ context.Context, config *models.Configuration) (
 func (b *backend) initialize(ctx context.Context, req *logical.InitializationRequest) error {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
+
+	if req == nil {
+		return fmt.Errorf("initialization request is nil")
+	}
+
 	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
 		b.Logger().Warn("init: failed to get the config from storage", "error", err)
