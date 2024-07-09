@@ -148,6 +148,8 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
@@ -200,9 +202,9 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		b.Logger().Debug(fmt.Sprintf("handling login attempt from %+v", cfCert))
 	}
 
-	client, err := b.getCFClient(ctx)
+	client, err := b.getCFClientOrRefresh(ctx, config)
 	if err != nil {
-		return nil, err
+		return logical.ErrorResponse(err.Error()), nil
 	}
 
 	if err := b.validate(client, role, cfCert, req.Connection.RemoteAddr); err != nil {
@@ -253,6 +255,8 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 }
 
 func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	config, err := getConfig(ctx, req.Storage)
 	if err != nil {
 		return nil, err
@@ -302,9 +306,9 @@ func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data
 	// Reconstruct the certificate and ensure it still meets all constraints.
 	cfCert, err := models.NewCFCertificate(instanceID, orgID, spaceID, appID, ipAddr)
 
-	client, err := b.getCFClient(ctx)
+	client, err := b.getCFClientOrRefresh(ctx, config)
 	if err != nil {
-		return nil, err
+		return logical.ErrorResponse(err.Error()), nil
 	}
 
 	if err := b.validate(client, role, cfCert, req.Connection.RemoteAddr); err != nil {

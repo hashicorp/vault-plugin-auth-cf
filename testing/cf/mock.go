@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"time"
 
 	"github.com/hashicorp/go-hclog"
 )
@@ -107,6 +108,9 @@ func MockServer(loud bool, casToTrust []string) *httptest.Server {
 		testServer.TLS = &tls.Config{}
 		testServer.TLS.ClientCAs = clientCACertPool
 	}
+
+	// give the server time listen
+	time.Sleep(time.Millisecond * 250)
 
 	return testServer
 }
