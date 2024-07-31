@@ -5,7 +5,6 @@ package signatures
 
 import (
 	"encoding/base64"
-	"fmt"
 	"io/ioutil"
 	"testing"
 	"time"
@@ -118,12 +117,17 @@ func TestSignature(t *testing.T) {
 		Role:                   sampleRole,
 		CFInstanceCertContents: string(certBytes),
 	}
-	fmt.Println(`hashing string: "` + signatureData.toSign() + `"`)
 	signature, err := Sign(sampleKey, signatureData)
 	if err != nil {
 		t.Fatal(err)
 	}
-	fmt.Printf("sha256sum is: %x\n", signatureData.hash())
-	fmt.Println(`resulting signature: "` + signature + `"`)
-	fmt.Println(`resulting signatures will vary on each run due to random bytes included in the signature`)
+
+	if len(signatureData.hash()) != 32 {
+		t.Errorf("expected 32 bytes, got %d", len(signatureData.hash()))
+	}
+
+	if len(signature) == 0 {
+		t.Errorf("expected non-empty signature")
+
+	}
 }

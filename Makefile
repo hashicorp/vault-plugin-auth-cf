@@ -1,5 +1,6 @@
 TOOL?=vault-plugin-auth-cf
-TEST?=$$(go list ./... | grep -v /vendor/ | grep -v teamcity)
+TEST?=$$(go list ./...)
+TESTARGS  ?= '-test.v -count=1'
 EXTERNAL_TOOLS=
 BUILD_TAGS?=${TOOL}
 GOFMT_FILES?=$$(find . -name '*.go' | grep -v vendor)
@@ -17,11 +18,11 @@ dev: fmtcheck generate
 
 # testshort runs the quick unit tests and vets the code
 testshort: fmtcheck generate
-	CGO_ENABLED=0 VAULT_TOKEN= VAULT_ACC= go test -short -tags='$(BUILD_TAGS)' $(TEST) $(TESTARGS) -count=1 -timeout=20m -parallel=4
+	CGO_ENABLED=0 VAULT_TOKEN= VAULT_ACC= go test -short -tags='$(BUILD_TAGS)' $(TEST) $(TESTARGS) -timeout=20m -parallel=4
 
 # test runs the unit tests and vets the code
 test: fmtcheck generate
-	CGO_ENABLED=0 VAULT_TOKEN= VAULT_ACC= go test ./... -v -tags='$(BUILD_TAGS)' $(TEST) $(TESTARGS) -count=1 -timeout=20m -parallel=4
+	CGO_ENABLED=0 VAULT_TOKEN= VAULT_ACC= go test ./... -v -tags='$(BUILD_TAGS)' $(TEST) $(TESTARGS) -timeout=20m -parallel=4
 
 testcompile: fmtcheck generate
 	@for pkg in $(TEST) ; do \
