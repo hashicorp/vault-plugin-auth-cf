@@ -1,5 +1,22 @@
 ## Unreleased
 
+
+## v0.19.0 (September 4th, 2024)
+
+Dependency Updates:
+* `github.com/docker/docker v25.0.5+incompatible` -> v25.0.6+incompatible
+* `github.com/hashicorp/vault/api` v1.13.0 -> v1.14.0
+* `github.com/hashicorp/vault/sdk` v0.12.0 -> v0.13.0
+* `golang.org/x/crypto` v0.23.0 -> v0.26.0
+* `golang.org/x/net` v0.25.0 -> v0.28.0
+
+
+## v0.18.0 (July 8th, 2024)
+
+BUGS:
+* Use a single CF client for all requests to avoid connection exhaustion [GH-86](https://github.com/hashicorp/vault-plugin-auth-cf/pull/86) [GH-87](https://github.com/hashicorp/vault-plugin-auth-cf/pull/87)
+
+
 ## v0.17.0 (May 21st, 2023)
 
 * Updated dependencies:
@@ -45,4 +62,3 @@ IMPROVEMENTS
   * `github.com/hashicorp/vault/api` v1.9.1
   * `github.com/hashicorp/vault/sdk` v0.9.0
   * `golang.org.x/net` v0.9.0
-
