@@ -95,6 +95,14 @@ func (b *backend) pathConfig() *framework.Path {
 				},
 				Description: "The client secret for CF’s API.",
 			},
+			"cf_timeout": {
+				Type: framework.TypeDurationSecond,
+				DisplayAttrs: &framework.DisplayAttributes{
+					Name: "CF Timeout",
+				},
+				Description: "The timeout for calls to CF’s API.",
+				Default:     "0s", // 0 means no timeout
+			},
 			// These fields were in the original release, but are being deprecated because Cloud Foundry is moving
 			// away from using "PCF" to refer to themselves.
 			"pcf_api_trusted_certificates": {
