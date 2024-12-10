@@ -312,6 +312,8 @@ func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data
 	}
 
 	if err := b.validate(client, role, cfCert, req.Connection.RemoteAddr); err != nil {
+		// taint the client on error so that it will be refreshed on the next login attempt
+		b.cfClientTainted = true
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
