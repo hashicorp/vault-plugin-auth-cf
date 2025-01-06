@@ -6,6 +6,7 @@ IMPROVEMENTS:
 
 * added `cf_timeout` configuration field to customize the CF client timeout [GH-96](https://github.com/hashicorp/vault-plugin-auth-cf/pull/96)
 * Updated dependencies
+* bump go version to 1.23.3
 
 ## v0.18.0 (July 8th, 2024)
 
