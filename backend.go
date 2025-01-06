@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/hashicorp/go-cleanhttp"
@@ -21,9 +22,9 @@ import (
 )
 
 const (
-	// These env vars are used frequently to pull the client certificate and private key
-	// from CF containers; thus are placed here for ease of discovery and use from
-	// outside packages.
+	// EnvVarInstanceCertificate env vars are used frequently to pull the client
+	// certificate and private key from CF containers; thus are placed here for ease
+	// of discovery and use from outside packages.
 	EnvVarInstanceCertificate = "CF_INSTANCE_CERT"
 	EnvVarInstanceKey         = "CF_INSTANCE_KEY"
 
@@ -57,10 +58,11 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 
 type backend struct {
 	*framework.Backend
-	mu             sync.RWMutex
-	cfClient       *cfclient.Client
-	cfClientMu     sync.RWMutex
-	lastConfigHash *[32]byte
+	mu              sync.RWMutex
+	cfClient        *cfclient.Client
+	cfClientMu      sync.RWMutex
+	lastConfigHash  *[32]byte
+	cfClientTainted bool
 }
 
 const backendHelp = `
@@ -90,14 +92,13 @@ func (b *backend) updateCFClient(ctx context.Context, config *models.Configurati
 		return false, err
 	}
 
-	if b.lastConfigHash != nil && b.cfClient != nil {
-		if err == nil {
-			if *b.lastConfigHash == configHash {
-				return false, nil
-			}
+	if !b.cfClientTainted && b.lastConfigHash != nil && b.cfClient != nil {
+		if *b.lastConfigHash == configHash {
+			return false, nil
 		}
 	}
 
+	b.cfClientTainted = false
 	if b.cfClient != nil {
 		if b.cfClient.Config.HttpClient != nil {
 			b.cfClient.Config.HttpClient.CloseIdleConnections()
@@ -139,13 +140,16 @@ func (b *backend) newCFClient(_ context.Context, config *models.Configuration) (
 		return nil, fmt.Errorf("configuration is nil")
 	}
 
+	httpClient := cleanhttp.DefaultClient()
+	httpClient.Timeout = config.CFTimeout * time.Second
+
 	clientConf := &cfclient.Config{
 		ApiAddress:   config.CFAPIAddr,
 		Username:     config.CFUsername,
 		Password:     config.CFPassword,
 		ClientID:     config.CFClientID,
 		ClientSecret: config.CFClientSecret,
-		HttpClient:   cleanhttp.DefaultClient(),
+		HttpClient:   httpClient,
 	}
 	rootCAs, err := x509.SystemCertPool()
 	if err != nil {
