@@ -5,6 +5,7 @@
 IMPROVEMENTS:
 
 * added `cf_timeout` configuration field to customize the CF client timeout [GH-95](https://github.com/hashicorp/vault-plugin-auth-cf/pull/95)
+* bump go version to 1.23.3
 * updated dependencies
   * bump golang.org/x/crypto to v0.31.0
   * bump golang.org/x/net to v0.33.0
@@ -24,6 +25,7 @@ Dependency Updates:
 IMPROVEMENTS:
 
 * added `cf_timeout` configuration field to customize the CF client timeout [GH-96](https://github.com/hashicorp/vault-plugin-auth-cf/pull/96)
+* bump go version to 1.23.3
 
 ## v0.18.0 (July 8th, 2024)
 
