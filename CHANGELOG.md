@@ -1,5 +1,17 @@
 ## Unreleased
 
+## v0.18.1 (January 6, 2025)
+
+IMPROVEMENTS:
+
+* added `cf_timeout` configuration field to customize the CF client timeout [GH-96](https://github.com/hashicorp/vault-plugin-auth-cf/pull/96)
+* Updated dependencies
+
+## v0.18.0 (July 8th, 2024)
+
+BUGS:
+* Use a single CF client for all requests to avoid connection exhaustion [GH-86](https://github.com/hashicorp/vault-plugin-auth-cf/pull/86) [GH-87](https://github.com/hashicorp/vault-plugin-auth-cf/pull/87)
+
 ## v0.17.0 (May 21st, 2023)
 
 * Updated dependencies:
