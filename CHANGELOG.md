@@ -1,5 +1,7 @@
 ## Unreleased
 
+* bump go version to 1.23.5
+
 ## v0.19.1 (January 6, 2025)
 
 IMPROVEMENTS:
