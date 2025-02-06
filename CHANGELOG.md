@@ -1,6 +1,18 @@
 ## Unreleased
 
+## v0.20.0 (February 7, 2025)
+
+IMPROVEMENTS:
+
 * bump go version to 1.23.5
+* Updated dependencies:
+   * `github.com/hashicorp/go-secure-stdlib/parseutil` v0.1.8 -> v0.1.9
+   * `github.com/hashicorp/go-sockaddr` v1.0.6 -> v1.0.7
+   * `github.com/hashicorp/vault/api` v1.14.0 -> v1.15.0
+   * `github.com/hashicorp/vault/sdk` v0.13.0 -> v0.14.1
+   * `github.com/stretchr/testify` v1.9.0 -> v1.10.0
+   * `golang.org/x/crypto` v0.31.0 -> v0.32.0
+   * `golang.org/x/net` v0.33.0 -> v0.34.0
 
 ## v0.19.1 (January 6, 2025)
 
