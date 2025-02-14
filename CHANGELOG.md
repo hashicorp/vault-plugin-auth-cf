@@ -1,5 +1,7 @@
 ## Unreleased
 
+* Save cf_timeout configuration value in CF auth plugin and add test coverage [GH-104](https://github.com/hashicorp/vault-plugin-auth-cf/pull/104)
+
 ## v0.20.0 (February 7, 2025)
 
 IMPROVEMENTS:
