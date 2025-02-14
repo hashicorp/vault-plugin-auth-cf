@@ -338,6 +338,12 @@ func (e *Env) ReadConfig(t *testing.T) {
 	if resp.Data["cf_timeout"] != e.TestConf.CFTimeout.Seconds() {
 		t.Fatalf("expected %f but received %f", e.TestConf.CFTimeout.Seconds(), resp.Data["cf_timeout"])
 	}
+	if resp.Data["login_max_seconds_not_before"] != 12*time.Second {
+		t.Fatalf("expected %s but received %s", 12*time.Second, resp.Data["login_max_seconds_not_before"])
+	}
+	if resp.Data["login_max_seconds_not_after"] != 13*time.Second {
+		t.Fatalf("expected %s but received %s", 13*time.Second, resp.Data["login_max_seconds_not_after"])
+	}
 }
 
 func (e *Env) UpdateConfig(t *testing.T) {
