@@ -161,6 +161,15 @@ Set low to reduce the opportunity for replay attacks.`,
 Set low to reduce the opportunity for replay attacks.`,
 				Default: 60,
 			},
+			"force_new_client": {
+				Type: framework.TypeBool,
+				DisplayAttrs: &framework.DisplayAttributes{
+					Name:  "Force New Client",
+					Value: "false",
+				},
+				Description: `If true, a new CF client will be created every time there is a call to login.`,
+				Default:     false,
+			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.UpdateOperation: &framework.PathOperation{
@@ -276,6 +285,12 @@ func (b *backend) operationConfigWrite(ctx context.Context, req *logical.Request
 			cfTimeout = time.Duration(raw.(int)) * time.Second
 		}
 
+		// Default this to false.
+		forceNewClient := false
+		if raw, ok := data.GetOk("force_new_client"); ok {
+			forceNewClient = raw.(bool)
+		}
+
 		config = &models.Configuration{
 			Version:                1,
 			IdentityCACertificates: identityCACerts,
@@ -290,6 +305,7 @@ func (b *backend) operationConfigWrite(ctx context.Context, req *logical.Request
 			LoginMaxSecNotBefore:   loginMaxSecNotBefore,
 			LoginMaxSecNotAfter:    loginMaxSecNotAfter,
 			CFTimeout:              cfTimeout,
+			ForceNewClient:         forceNewClient,
 		}
 	} else {
 		// They're updating a config. Only update the fields that have been sent in the call.
@@ -321,6 +337,9 @@ func (b *backend) operationConfigWrite(ctx context.Context, req *logical.Request
 		}
 		if raw, ok := data.GetOk("login_max_seconds_not_after"); ok {
 			config.LoginMaxSecNotAfter = time.Duration(raw.(int)) * time.Second
+		}
+		if raw, ok := data.GetOk("force_new_client"); ok {
+			config.ForceNewClient = raw.(bool)
 		}
 		if raw, ok := data.GetOk("cf_client_id"); ok {
 			config.CFClientID = raw.(string)
@@ -375,6 +394,7 @@ func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request,
 			"cf_client_id":                  config.CFClientID,
 			"login_max_seconds_not_before":  config.LoginMaxSecNotBefore,
 			"login_max_seconds_not_after":   config.LoginMaxSecNotAfter,
+			"force_new_client":              config.ForceNewClient,
 		},
 	}
 	// Populate any deprecated values and warn about them. These should just be stripped when we go to
