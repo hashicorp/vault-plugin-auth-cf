@@ -1,3 +1,12 @@
+## v0.16.1 (April 7th, 2025)
+
+IMPROVEMENTS:
+
+* Updated dependencies:
+  * `github.com/hashicorp/go-hclog` v1.6.2 -> v1.6.3
+  * `golang.org/x/net` v0.20.0 -> v0.36.0
+  * `google.golang.org/protobuf` v1.32.0 -> v1.33.0
+
 ## v0.16.0 (February 1st, 2023)
 
 IMPROVEMENTS:
