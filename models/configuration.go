@@ -65,6 +65,9 @@ type Configuration struct {
 	// This is configurable because in some test environments we found as much as 2 hours of clock drift.
 	LoginMaxSecNotAfter time.Duration `json:"login_max_seconds_not_after"`
 
+	// ForceNewClient is used to force a new CF client to be created every time a login is attempted.
+	ForceNewClient bool `json:"force_new_client"`
+
 	// Deprecated: use CFAPICertificates instead.
 	PCFAPICertificates []string `json:"pcf_api_trusted_certificates"`
 
