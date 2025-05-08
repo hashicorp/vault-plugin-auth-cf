@@ -59,6 +59,7 @@ func TestBackend(t *testing.T) {
 		CFPassword:             cf.AuthPassword,
 		CFClientID:             cf.AuthClientID,
 		CFClientSecret:         cf.AuthClientSecret,
+		CFTimeout:              30 * time.Second,
 		LoginMaxSecNotBefore:   5,
 		LoginMaxSecNotAfter:    1,
 	}
@@ -278,6 +279,7 @@ func (e *Env) CreateConfig(t *testing.T) {
 			"cf_password":                   e.TestConf.CFPassword,
 			"cf_client_id":                  e.TestConf.CFClientID,
 			"cf_client_secret":              e.TestConf.CFClientSecret,
+			"cf_timeout":                    e.TestConf.CFTimeout,
 			"login_max_seconds_not_before":  12,
 			"login_max_seconds_not_after":   13,
 		},
@@ -332,6 +334,9 @@ func (e *Env) ReadConfig(t *testing.T) {
 	}
 	if resp.Data["cf_client_secret"] != nil {
 		t.Fatalf("expected %s but received %s", "nil", resp.Data["cf_client_secret"])
+	}
+	if resp.Data["cf_timeout"] != e.TestConf.CFTimeout.Seconds() {
+		t.Fatalf("expected %f but received %f", e.TestConf.CFTimeout.Seconds(), resp.Data["cf_timeout"])
 	}
 }
 
@@ -797,7 +802,6 @@ func Test_backend_updateCFClient(t *testing.T) {
 					if s != nil {
 						s.Close()
 					}
-
 				})
 
 				tt.config.CFAPIAddr = s.URL
@@ -903,7 +907,6 @@ func Test_backend_newCFClient(t *testing.T) {
 					if s != nil {
 						s.Close()
 					}
-
 				})
 
 				tt.config.CFAPIAddr = s.URL
@@ -1024,7 +1027,6 @@ func Test_backend_getCFClientOrRefresh(t *testing.T) {
 					if s != nil {
 						s.Close()
 					}
-
 				})
 
 				tt.config.CFAPIAddr = s.URL
@@ -1125,7 +1127,6 @@ func Test_backend_initialize(t *testing.T) {
 					if s != nil {
 						s.Close()
 					}
-
 				})
 
 				tt.config.CFAPIAddr = s.URL
