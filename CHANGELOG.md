@@ -1,5 +1,10 @@
 ## Unreleased
 
+## v0.18.2 (May 12, 2025)
+
+BUGS:
+
+* Fix a bug where the `cf_timeout` user-provided value was always ignored [GH-104](https://github.com/hashicorp/vault-plugin-auth-cf/pull/104)
 ## v0.18.1 (January 6, 2025)
 
 IMPROVEMENTS:
