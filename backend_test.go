@@ -118,6 +118,102 @@ func TestBackend(t *testing.T) {
 	t.Run("login", env.Login)
 }
 
+func TestBackend_Client(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	storage := &logical.InmemStorage{}
+
+	testCerts, err := certificates.Generate(cf.FoundServiceGUID, cf.FoundOrgGUID, cf.FoundSpaceGUID, cf.FoundAppGUID, "10.255.181.105")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := testCerts.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	invalidCaCertBytes, err := ioutil.ReadFile("testdata/real-certificates/ca.crt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfServer := cf.MockServer(false, nil)
+	defer cfServer.Close()
+
+	testConf := &models.Configuration{
+		IdentityCACertificates: []string{testCerts.CACertificate, string(invalidCaCertBytes)},
+		CFAPIAddr:              cfServer.URL,
+		CFUsername:             cf.AuthUsername,
+		CFPassword:             cf.AuthPassword,
+		CFClientID:             cf.AuthClientID,
+		CFClientSecret:         cf.AuthClientSecret,
+		CFTimeout:              30 * time.Second,
+		LoginMaxSecNotBefore:   5,
+		LoginMaxSecNotAfter:    1,
+	}
+
+	be, err := Factory(ctx, &logical.BackendConfig{
+		StorageView: storage,
+		Logger:      hclog.Default(),
+		System: &logical.StaticSystemView{
+			DefaultLeaseTTLVal: time.Hour,
+			MaxLeaseTTLVal:     time.Hour,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsedCIDRs, err := parseutil.ParseAddrs([]string{"10.255.181.105/24"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	env := &Env{
+		Ctx:      ctx,
+		Storage:  storage,
+		Backend:  be,
+		TestConf: testConf,
+		TestRole: &models.RoleEntry{
+			BoundAppIDs:      []string{cf.FoundAppGUID},
+			BoundSpaceIDs:    []string{cf.FoundSpaceGUID},
+			BoundOrgIDs:      []string{cf.FoundOrgGUID},
+			BoundInstanceIDs: []string{cf.FoundServiceGUID},
+			BoundCIDRs:       parsedCIDRs,
+			Policies:         []string{"default", "foo"},
+			TTL:              60,
+			MaxTTL:           2 * 60,
+			Period:           5 * 60,
+		},
+		TestCerts: testCerts,
+	}
+	bEnd := env.Backend.(*backend)
+	originalClient := bEnd.cfClient
+	originalConfigHash := bEnd.lastConfigHash
+	require.Nil(t, originalClient, "expected the CF client to be nil")
+	require.Nil(t, originalConfigHash, "expected the config hash to be nil")
+
+	t.Run("create config", env.CreateConfig)
+	require.NotEqual(t, originalClient, bEnd.cfClient, "expected the CF client to be initialized")
+	require.NotEqual(t, originalConfigHash, bEnd.lastConfigHash, "expected the config hash to be initialized")
+
+	// Update config slightly
+	originalClient = bEnd.cfClient
+	originalConfigHash = bEnd.lastConfigHash
+	env.TestConf.CFTimeout = 60 * time.Second
+	t.Run("update config", env.CreateConfig)
+	require.NotEqual(t, originalClient, bEnd.cfClient, "expected the CF client to be updated")
+	require.NotEqual(t, originalConfigHash, bEnd.lastConfigHash, "expected the config hash to be updated")
+
+	// Update config with the same values
+	originalClient = bEnd.cfClient
+	originalConfigHash = bEnd.lastConfigHash
+	t.Run("update config with same values", env.CreateConfig)
+	require.Equal(t, originalClient, bEnd.cfClient, "expected the CF client to be initialized")
+	require.Equal(t, originalConfigHash, bEnd.lastConfigHash, "expected the config hash to be updated")
+}
+
 func TestBackendMTLS(t *testing.T) {
 	t.Parallel()
 
@@ -770,7 +866,7 @@ func Test_backend_updateCFClient(t *testing.T) {
 			expectHash:   true,
 		},
 		{
-			name:         "replaces existing client but keeps same hash",
+			name:         "replaces-existing-client-but-keeps-same-hash",
 			config:       newConfig(t),
 			modifyConfig: func(c *models.Configuration) { c.CFAPIAddr = s.URL },
 			expectErr:    false,
@@ -783,7 +879,7 @@ func Test_backend_updateCFClient(t *testing.T) {
 			},
 		},
 		{
-			name:         "newCFClient returns error",
+			name:         "newCFClient-with-invalid-config-returns-error",
 			config:       newConfig(t),
 			modifyConfig: func(c *models.Configuration) { c.CFAPIAddr = "http://invalid" },
 			expectErr:    true,
