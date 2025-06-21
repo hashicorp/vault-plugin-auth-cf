@@ -305,6 +305,9 @@ func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data
 
 	// Reconstruct the certificate and ensure it still meets all constraints.
 	cfCert, err := models.NewCFCertificate(instanceID, orgID, spaceID, appID, ipAddr)
+	if err != nil {
+		return nil, err
+	}
 
 	client, err := b.getCFClientOrRefresh(ctx, config)
 	if err != nil {
@@ -312,8 +315,6 @@ func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data
 	}
 
 	if err := b.validate(client, role, cfCert, req.Connection.RemoteAddr); err != nil {
-		// taint the client on error so that it will be refreshed on the next login attempt
-		b.cfClientTainted = true
 		return logical.ErrorResponse(err.Error()), nil
 	}
 

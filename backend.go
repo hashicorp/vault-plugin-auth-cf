@@ -57,11 +57,10 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 
 type backend struct {
 	*framework.Backend
-	mu              sync.RWMutex
-	cfClient        *cfclient.Client
-	cfClientMu      sync.RWMutex
-	lastConfigHash  *[32]byte
-	cfClientTainted bool
+	mu             sync.RWMutex
+	cfClient       *cfclient.Client
+	cfClientMu     sync.RWMutex
+	lastConfigHash *[32]byte
 }
 
 const backendHelp = `
@@ -91,13 +90,12 @@ func (b *backend) updateCFClient(ctx context.Context, config *models.Configurati
 		return false, err
 	}
 
-	if !b.cfClientTainted && b.lastConfigHash != nil && b.cfClient != nil {
+	if b.lastConfigHash != nil && b.cfClient != nil {
 		if *b.lastConfigHash == configHash {
 			return false, nil
 		}
 	}
 
-	b.cfClientTainted = false
 	if b.cfClient != nil {
 		if b.cfClient.Config.HttpClient != nil {
 			b.cfClient.Config.HttpClient.CloseIdleConnections()

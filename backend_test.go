@@ -1055,6 +1055,7 @@ func Test_backend_getCFClientOrRefresh(t *testing.T) {
 
 			// test again, should not update
 			c, err = b.getCFClientOrRefresh(ctx, tt.config)
+			assert.NoErrorf(t, err, "getClientOrRefresh")
 			assert.Equalf(t, b.cfClient, c, "getCFClientOrRefresh(%v, %v)", ctx, tt.config)
 			assert.Equalf(t, expectConfigHash, *b.lastConfigHash, "getCFClientOrRefresh(%v, %v)", ctx, tt.config)
 			assert.NotNilf(t, b.cfClient, "getCFClientOrRefresh(%v, %v)", ctx, tt.config)
