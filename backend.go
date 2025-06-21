@@ -70,6 +70,7 @@ CF's API, CF's instance identity credentials can be used to authenticate.'
 `
 
 var errCFClientNotInitialized = fmt.Errorf("client is not initialized")
+var errNilConfiguration = fmt.Errorf("configuration is nil")
 
 func (b *backend) getCFClient(_ context.Context) (*cfclient.Client, error) {
 	b.cfClientMu.RLock()
@@ -109,7 +110,7 @@ func (b *backend) updateCFClient(ctx context.Context, config *models.Configurati
 
 func (b *backend) getCFClientOrRefresh(ctx context.Context, config *models.Configuration) (*cfclient.Client, error) {
 	if config == nil {
-		return nil, fmt.Errorf("configuration is nil")
+		return nil, errNilConfiguration
 	}
 
 	client, err := b.getCFClient(ctx)
@@ -128,7 +129,7 @@ func (b *backend) getCFClientOrRefresh(ctx context.Context, config *models.Confi
 
 func (b *backend) newCFClient(_ context.Context, config *models.Configuration) (*cfclient.Client, error) {
 	if config == nil {
-		return nil, fmt.Errorf("configuration is nil")
+		return nil, errNilConfiguration
 	}
 
 	httpClient := cleanhttp.DefaultClient()

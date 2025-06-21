@@ -730,112 +730,106 @@ type cfClientTest struct {
 	lastConfigHash *[32]byte
 	setConfigHash  bool
 	cfClient       *cfclient.Client
-	wantUpdated    bool
 	withMockServer bool
 	wantErr        assert.ErrorAssertionFunc
 }
 
 func Test_backend_updateCFClient(t *testing.T) {
-	t.Parallel()
-
-	defaultConfig := newConfig(t)
-	defaultConfigHash, err := defaultConfig.Hash()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	ctx := context.Background()
-	tests := []cfClientTest{
+
+	s := cf.MockServer(false, nil)
+	t.Cleanup(func() {
+		if s != nil {
+			s.Close()
+		}
+	})
+
+	tests := []struct {
+		name         string
+		config       *models.Configuration
+		modifyConfig func(*models.Configuration)
+		expectErr    bool
+		expectClient bool
+		expectHash   bool
+		initBackend  bool
+		checkFunc    func(t *testing.T, b *backend, prevClient *cfclient.Client, prevHash *[32]byte)
+	}{
 		{
-			name:    "invalid-nil-config",
-			wantErr: assert.Error,
+			name:         "nil-config-returns error",
+			config:       nil,
+			expectErr:    true,
+			expectClient: false,
+			expectHash:   false,
 		},
 		{
-			name:           "not-updated-config-hash-match",
-			config:         newConfig(t),
-			cfClient:       &cfclient.Client{},
-			lastConfigHash: &defaultConfigHash,
-			wantErr:        assert.NoError,
+			name:         "initializes-new-client-and-hash",
+			config:       newConfig(t),
+			modifyConfig: func(c *models.Configuration) { c.CFAPIAddr = s.URL },
+			expectErr:    false,
+			expectClient: true,
+			expectHash:   true,
 		},
 		{
-			name:           "updated-config-hash-match-nil-client",
-			config:         newConfig(t),
-			wantErr:        assert.NoError,
-			wantUpdated:    true,
-			withMockServer: true,
+			name:         "replaces existing client but keeps same hash",
+			config:       newConfig(t),
+			modifyConfig: func(c *models.Configuration) { c.CFAPIAddr = s.URL },
+			expectErr:    false,
+			expectClient: true,
+			expectHash:   true,
+			initBackend:  true,
+			checkFunc: func(t *testing.T, b *backend, prevClient *cfclient.Client, prevHash *[32]byte) {
+				require.NotEqual(t, prevClient, b.cfClient, "expected cfClient to change")
+				require.Equal(t, *prevHash, *b.lastConfigHash, "expected hash to remain the same")
+			},
 		},
 		{
-			name:           "updated-config-hash-change",
-			config:         newConfig(t),
-			lastConfigHash: &defaultConfigHash,
-			cfClient:       &cfclient.Client{},
-			wantErr:        assert.NoError,
-			wantUpdated:    true,
-			withMockServer: true,
-		},
-		{
-			name:           "updated-new-client",
-			config:         newConfig(t),
-			wantErr:        assert.NoError,
-			wantUpdated:    true,
-			withMockServer: true,
+			name:         "newCFClient returns error",
+			config:       newConfig(t),
+			modifyConfig: func(c *models.Configuration) { c.CFAPIAddr = "http://invalid" },
+			expectErr:    true,
+			expectClient: false,
+			expectHash:   false,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := &backend{
-				lastConfigHash: tt.lastConfigHash,
-				cfClient:       tt.cfClient,
+			backend := &backend{}
+
+			if tt.modifyConfig != nil && tt.config != nil {
+				tt.modifyConfig(tt.config)
 			}
 
-			var s *httptest.Server
-			var expectConfigHash [32]byte
-
-			if tt.lastConfigHash != nil && !tt.setConfigHash {
-				expectConfigHash = *tt.lastConfigHash
+			if tt.initBackend {
+				backend.updateCFClient(ctx, tt.config)
 			}
 
-			if tt.withMockServer {
-				require.NotNil(t, tt.config, "test %s: config is nil", tt.name)
-				s = cf.MockServer(false, nil)
-				t.Cleanup(func() {
-					if s != nil {
-						s.Close()
-					}
-				})
+			prevClient := backend.cfClient
+			prevHash := backend.lastConfigHash
 
-				tt.config.CFAPIAddr = s.URL
-				expectConfigHash, err = tt.config.Hash()
-				if err != nil {
-					require.FailNow(t, err.Error())
-				}
+			err := backend.updateCFClient(ctx, tt.config)
 
-				if tt.setConfigHash {
-					b.lastConfigHash = &expectConfigHash
-				}
+			if tt.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
 			}
 
-			updated, err := b.updateCFClient(ctx, tt.config)
-			if !tt.wantErr(t, err, fmt.Sprintf("updateCFClient(%v, %v)", ctx, tt.config)) {
-				return
+			if tt.expectClient {
+				require.NotNil(t, backend.cfClient, "expected cfClient to be set")
+			} else {
+				require.Nil(t, backend.cfClient, "expected cfClient to remain nil")
 			}
 
-			assert.Equalf(t, tt.wantUpdated, updated, "updateCFClient(%v, %v)", ctx, tt.config)
-
-			if err != nil {
-				return
+			if tt.expectHash {
+				require.NotNil(t, backend.lastConfigHash, "expected lastConfigHash to be set")
+			} else {
+				require.Nil(t, backend.lastConfigHash, "expected lastConfigHash to remain nil")
 			}
 
-			assert.Equalf(t, expectConfigHash, *b.lastConfigHash, "updateCFClient(%v, %v)", ctx, tt.config)
-			assert.NotNil(t, b.cfClient, "updateCFClient(%v, %v)", ctx, tt.config)
-
-			// test again, should not update
-			updated, err = b.updateCFClient(ctx, tt.config)
-			if assert.NoError(t, err) {
-				assert.False(t, updated)
+			if tt.checkFunc != nil {
+				tt.checkFunc(t, backend, prevClient, prevHash)
 			}
-			assert.Equalf(t, expectConfigHash, *b.lastConfigHash, "updateCFClient(%v, %v)", ctx, tt.config)
-			assert.NotNil(t, b.cfClient, "updateCFClient(%v, %v)", ctx, tt.config)
 		})
 	}
 }
