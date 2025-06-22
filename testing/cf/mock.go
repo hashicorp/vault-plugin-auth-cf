@@ -58,6 +58,7 @@ func MockServer(loud bool, casToTrust []string, simulateFailures map[string]int)
 				if failureTracking["token"] < target {
 					failureTracking["token"]++
 					w.WriteHeader(500)
+					break
 				}
 			}
 			w.Header().Add("Content-Type", "application/json;charset=UTF-8")
@@ -69,6 +70,7 @@ func MockServer(loud bool, casToTrust []string, simulateFailures map[string]int)
 				if failureTracking["info"] < target {
 					failureTracking["info"]++
 					w.WriteHeader(500)
+					break
 				}
 			}
 			w.WriteHeader(200)
@@ -78,6 +80,7 @@ func MockServer(loud bool, casToTrust []string, simulateFailures map[string]int)
 				if failureTracking[FoundServiceGUID] < target {
 					failureTracking[FoundServiceGUID]++
 					w.WriteHeader(500)
+					break
 				}
 			}
 			w.WriteHeader(200)
@@ -87,6 +90,7 @@ func MockServer(loud bool, casToTrust []string, simulateFailures map[string]int)
 				if failureTracking[UnfoundServiceGUID] < target {
 					failureTracking[UnfoundServiceGUID]++
 					w.WriteHeader(500)
+					break
 				}
 			}
 			w.WriteHeader(404)
@@ -96,6 +100,7 @@ func MockServer(loud bool, casToTrust []string, simulateFailures map[string]int)
 				if failureTracking[FoundAppGUID] < target {
 					failureTracking[FoundAppGUID]++
 					w.WriteHeader(500)
+					break
 				}
 			}
 			w.WriteHeader(200)
@@ -105,6 +110,7 @@ func MockServer(loud bool, casToTrust []string, simulateFailures map[string]int)
 				if failureTracking[UnfoundAppGUID] < target {
 					failureTracking[UnfoundAppGUID]++
 					w.WriteHeader(500)
+					break
 				}
 			}
 			w.WriteHeader(404)
@@ -114,6 +120,7 @@ func MockServer(loud bool, casToTrust []string, simulateFailures map[string]int)
 				if failureTracking[FoundOrgGUID] < target {
 					failureTracking[FoundOrgGUID]++
 					w.WriteHeader(500)
+					break
 				}
 			}
 			w.WriteHeader(200)
@@ -123,6 +130,7 @@ func MockServer(loud bool, casToTrust []string, simulateFailures map[string]int)
 				if failureTracking[UnfoundOrgID] < target {
 					failureTracking[UnfoundOrgID]++
 					w.WriteHeader(500)
+					break
 				}
 			}
 			w.WriteHeader(404)
@@ -132,6 +140,7 @@ func MockServer(loud bool, casToTrust []string, simulateFailures map[string]int)
 				if failureTracking[FoundSpaceGUID] < target {
 					failureTracking[FoundSpaceGUID]++
 					w.WriteHeader(500)
+					break
 				}
 			}
 			w.WriteHeader(200)
@@ -141,6 +150,7 @@ func MockServer(loud bool, casToTrust []string, simulateFailures map[string]int)
 				if failureTracking[UnfoundSpaceGUID] < target {
 					failureTracking[UnfoundSpaceGUID]++
 					w.WriteHeader(500)
+					break
 				}
 			}
 			w.WriteHeader(404)
