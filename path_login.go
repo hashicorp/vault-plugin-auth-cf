@@ -375,7 +375,7 @@ func (b *backend) validate(ctx context.Context, config *models.Configuration, ro
 
 	// Check everything we can using the space ID.
 	var space cfclient.Space
-	err = b.withRetryCFClient(context.Background(), config, func(client *cfclient.Client) error {
+	err = b.withRetryCFClient(ctx, config, func(client *cfclient.Client) error {
 		var err error
 		space, err = client.GetSpaceByGuid(cfCert.SpaceID)
 		if err != nil {
@@ -383,6 +383,9 @@ func (b *backend) validate(ctx context.Context, config *models.Configuration, ro
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, err
+	}
 	if space.Guid != cfCert.SpaceID {
 		return nil, fmt.Errorf("cert space ID %s doesn't match API's expected one of %s", cfCert.SpaceID, space.Guid)
 	}
@@ -467,7 +470,7 @@ func (b *backend) withRetryCFClient(
 ) error {
 	client, err := b.getCFClientOrRefresh(ctx, config)
 	if err != nil {
-		return err
+		return fmt.Errorf("error fetching client: %w", err)
 	}
 
 	// First attempt with current client
@@ -484,5 +487,15 @@ func (b *backend) withRetryCFClient(
 		return fmt.Errorf("failed to reinitialize CF client: %w", err)
 	}
 
-	return cfCall(b.cfClient)
+	// refetch client after update
+	client, err = b.getCFClientOrRefresh(ctx, config)
+	if err != nil {
+		return fmt.Errorf("error fetching client: %w", err)
+	}
+
+	err = cfCall(client)
+	if err != nil {
+		return fmt.Errorf("CF client call failed after retry: %w", err)
+	}
+	return nil
 }

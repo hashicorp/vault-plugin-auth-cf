@@ -49,7 +49,7 @@ func TestBackend(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfServer := cf.MockServer(false, nil)
+	cfServer := cf.MockServer(false, nil, map[string]int{})
 	defer cfServer.Close()
 
 	testConf := &models.Configuration{
@@ -139,7 +139,7 @@ func TestBackend_Client(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfServer := cf.MockServer(false, nil)
+	cfServer := cf.MockServer(false, nil, map[string]int{})
 	defer cfServer.Close()
 
 	testConf := &models.Configuration{
@@ -214,6 +214,84 @@ func TestBackend_Client(t *testing.T) {
 	require.Equal(t, originalConfigHash, bEnd.lastConfigHash, "expected the config hash to be updated")
 }
 
+func TestBackend_Login(t *testing.T) {
+	ctx := context.Background()
+	storage := &logical.InmemStorage{}
+
+	testCerts, err := certificates.Generate(cf.FoundServiceGUID, cf.FoundOrgGUID, cf.FoundSpaceGUID, cf.FoundAppGUID, "10.255.181.105")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := testCerts.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	invalidCaCertBytes, err := ioutil.ReadFile("testdata/real-certificates/ca.crt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfServer := cf.MockServer(false, nil, map[string]int{cf.FoundAppGUID: 1})
+	defer cfServer.Close()
+
+	testConf := &models.Configuration{
+		IdentityCACertificates: []string{testCerts.CACertificate, string(invalidCaCertBytes)},
+		CFAPIAddr:              cfServer.URL,
+		CFUsername:             cf.AuthUsername,
+		CFPassword:             cf.AuthPassword,
+		CFClientID:             cf.AuthClientID,
+		CFClientSecret:         cf.AuthClientSecret,
+		CFTimeout:              30 * time.Second,
+		LoginMaxSecNotBefore:   5,
+		LoginMaxSecNotAfter:    1,
+	}
+
+	be, err := Factory(ctx, &logical.BackendConfig{
+		StorageView: storage,
+		Logger:      hclog.Default(),
+		System: &logical.StaticSystemView{
+			DefaultLeaseTTLVal: time.Hour,
+			MaxLeaseTTLVal:     time.Hour,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsedCIDRs, err := parseutil.ParseAddrs([]string{"10.255.181.105/24"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	env := &Env{
+		Ctx:      ctx,
+		Storage:  storage,
+		Backend:  be,
+		TestConf: testConf,
+		TestRole: &models.RoleEntry{
+			BoundAppIDs:      []string{cf.FoundAppGUID},
+			BoundSpaceIDs:    []string{cf.FoundSpaceGUID},
+			BoundOrgIDs:      []string{cf.FoundOrgGUID},
+			BoundInstanceIDs: []string{cf.FoundServiceGUID},
+			BoundCIDRs:       parsedCIDRs,
+			Policies:         []string{"default", "foo"},
+			TTL:              60,
+			MaxTTL:           2 * 60,
+			Period:           5 * 60,
+		},
+		TestCerts: testCerts,
+	}
+	bEnd := env.Backend.(*backend)
+
+	t.Run("create config", env.CreateConfig)
+	originalClient := bEnd.cfClient
+	t.Run("create role", env.CreateRole)
+	require.Equal(t, originalClient, bEnd.cfClient, "expected the CF client to be the same after creating the role")
+	t.Run("login", env.Login)
+	require.NotEqual(t, originalClient, bEnd.cfClient, "expected the CF client to be the same after first login attempt failed")
+}
+
 func TestBackendMTLS(t *testing.T) {
 	t.Parallel()
 
@@ -240,7 +318,7 @@ func TestBackendMTLS(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfServer := cf.MockServer(false, []string{mtlsTestCerts.SigningCA})
+	cfServer := cf.MockServer(false, []string{mtlsTestCerts.SigningCA}, map[string]int{})
 	defer cfServer.Close()
 
 	testConf := &models.Configuration{
@@ -833,7 +911,7 @@ type cfClientTest struct {
 func Test_backend_updateCFClient(t *testing.T) {
 	ctx := context.Background()
 
-	s := cf.MockServer(false, nil)
+	s := cf.MockServer(false, nil, map[string]int{})
 	t.Cleanup(func() {
 		if s != nil {
 			s.Close()
@@ -992,7 +1070,7 @@ func Test_backend_newCFClient(t *testing.T) {
 			var s *httptest.Server
 			if tt.withMockServer {
 				require.NotNil(t, tt.config, "test %s: config is nil", tt.name)
-				s = cf.MockServer(false, nil)
+				s = cf.MockServer(false, nil, map[string]int{})
 				t.Cleanup(func() {
 					if s != nil {
 						s.Close()
@@ -1112,7 +1190,7 @@ func Test_backend_getCFClientOrRefresh(t *testing.T) {
 
 			if tt.withMockServer {
 				require.NotNil(t, tt.config, "test %s: config is nil", tt.name)
-				s = cf.MockServer(false, nil)
+				s = cf.MockServer(false, nil, map[string]int{})
 				t.Cleanup(func() {
 					if s != nil {
 						s.Close()
@@ -1213,7 +1291,7 @@ func Test_backend_initialize(t *testing.T) {
 
 			if tt.withMockServer {
 				require.NotNil(t, tt.config, "test %s: config is nil", tt.name)
-				s = cf.MockServer(false, nil)
+				s = cf.MockServer(false, nil, map[string]int{})
 				t.Cleanup(func() {
 					if s != nil {
 						s.Close()
