@@ -202,7 +202,7 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		b.Logger().Debug(fmt.Sprintf("handling login attempt from %+v", cfCert))
 	}
 
-	cfNames, err := b.validate(config, role, cfCert, req.Connection.RemoteAddr)
+	cfNames, err := b.validate(ctx, config, role, cfCert, req.Connection.RemoteAddr)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
@@ -290,7 +290,7 @@ func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data
 		return nil, err
 	}
 
-	if _, err := b.validate(config, role, cfCert, req.Connection.RemoteAddr); err != nil {
+	if _, err := b.validate(ctx, config, role, cfCert, req.Connection.RemoteAddr); err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
@@ -307,7 +307,7 @@ type cfNames struct {
 	spaceName string
 }
 
-func (b *backend) validate(config *models.Configuration, role *models.RoleEntry, cfCert *models.CFCertificate, reqConnRemoteAddr string) (*cfNames, error) {
+func (b *backend) validate(ctx context.Context, config *models.Configuration, role *models.RoleEntry, cfCert *models.CFCertificate, reqConnRemoteAddr string) (*cfNames, error) {
 	cfNames := cfNames{}
 	if !role.DisableIPMatching {
 		if !matchesIPAddress(reqConnRemoteAddr, net.ParseIP(cfCert.IPAddress)) {
@@ -333,7 +333,7 @@ func (b *backend) validate(config *models.Configuration, role *models.RoleEntry,
 
 	// Check everything we can using the app ID.
 	var app cfclient.App
-	err := b.withRetryCFClient(context.Background(), config, func(client *cfclient.Client) error {
+	err := b.withRetryCFClient(ctx, config, func(client *cfclient.Client) error {
 		var err error
 		app, err = client.AppByGuid(cfCert.AppID)
 		if err != nil {
@@ -357,7 +357,7 @@ func (b *backend) validate(config *models.Configuration, role *models.RoleEntry,
 
 	// Check everything we can using the org ID.
 	var org cfclient.Org
-	err = b.withRetryCFClient(context.Background(), config, func(client *cfclient.Client) error {
+	err = b.withRetryCFClient(ctx, config, func(client *cfclient.Client) error {
 		var err error
 		org, err = client.GetOrgByGuid(cfCert.OrgID)
 		if err != nil {
