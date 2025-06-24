@@ -42,6 +42,8 @@ var (
 	failureTracking = make(map[string]int)
 )
 
+// simulateFailures is a map that can be used to simulate failures for specific endpoints.
+// the key should be the path of the endpoint, and the value is the number of times the endpoint should fail before returning a successful response.
 func MockServer(loud bool, casToTrust []string, simulateFailures map[string]int) *httptest.Server {
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 

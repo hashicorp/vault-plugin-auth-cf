@@ -118,6 +118,7 @@ func TestBackend(t *testing.T) {
 	t.Run("login", env.Login)
 }
 
+// TestBackend_Client tests the backend's CF client after certain events
 func TestBackend_Client(t *testing.T) {
 	t.Parallel()
 
@@ -134,24 +135,17 @@ func TestBackend_Client(t *testing.T) {
 		}
 	}()
 
-	invalidCaCertBytes, err := ioutil.ReadFile("testdata/real-certificates/ca.crt")
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	cfServer := cf.MockServer(false, nil, map[string]int{})
 	defer cfServer.Close()
 
 	testConf := &models.Configuration{
-		IdentityCACertificates: []string{testCerts.CACertificate, string(invalidCaCertBytes)},
+		IdentityCACertificates: []string{testCerts.CACertificate},
 		CFAPIAddr:              cfServer.URL,
 		CFUsername:             cf.AuthUsername,
 		CFPassword:             cf.AuthPassword,
 		CFClientID:             cf.AuthClientID,
 		CFClientSecret:         cf.AuthClientSecret,
 		CFTimeout:              30 * time.Second,
-		LoginMaxSecNotBefore:   5,
-		LoginMaxSecNotAfter:    1,
 	}
 
 	be, err := Factory(ctx, &logical.BackendConfig{
@@ -188,6 +182,8 @@ func TestBackend_Client(t *testing.T) {
 		},
 		TestCerts: testCerts,
 	}
+
+	// Check CF client after events like initialization and config writes
 	bEnd := env.Backend.(*backend)
 	originalClient := bEnd.cfClient
 	originalConfigHash := bEnd.lastConfigHash
@@ -206,7 +202,7 @@ func TestBackend_Client(t *testing.T) {
 	require.NotEqual(t, originalClient, bEnd.cfClient, "expected the CF client to be updated")
 	require.NotEqual(t, originalConfigHash, bEnd.lastConfigHash, "expected the config hash to be updated")
 
-	// Update config with the same values
+	// Update config with the same values, make sure client doesn't change
 	originalClient = bEnd.cfClient
 	originalConfigHash = bEnd.lastConfigHash
 	t.Run("update config with same values", env.CreateConfig)
@@ -214,6 +210,8 @@ func TestBackend_Client(t *testing.T) {
 	require.Equal(t, originalConfigHash, bEnd.lastConfigHash, "expected the config hash to be updated")
 }
 
+// TestBackend_Login tests CF client behavior after an API request fails
+// It should reinitialize the CF client, retry and then succeed
 func TestBackend_Login(t *testing.T) {
 	ctx := context.Background()
 	storage := &logical.InmemStorage{}
@@ -289,7 +287,11 @@ func TestBackend_Login(t *testing.T) {
 	t.Run("create role", env.CreateRole)
 	require.Equal(t, originalClient, bEnd.cfClient, "expected the CF client to be the same after creating the role")
 	t.Run("login", env.Login)
-	require.NotEqual(t, originalClient, bEnd.cfClient, "expected the CF client to be the same after first login attempt failed")
+	require.NotEqual(t, originalClient, bEnd.cfClient, "expected the CF client to refresh after first login attempt failed")
+
+	originalClient = bEnd.cfClient
+	t.Run("login", env.Login)
+	require.Equal(t, originalClient, bEnd.cfClient, "expected the CF client to be the same after first login attempt succeeded")
 }
 
 func TestBackendMTLS(t *testing.T) {
