@@ -202,7 +202,7 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		b.Logger().Debug(fmt.Sprintf("handling login attempt from %+v", cfCert))
 	}
 
-	cfNames, err := b.validate(ctx, config, role, cfCert, req.Connection.RemoteAddr)
+	names, err := b.validate(ctx, config, role, cfCert, req.Connection.RemoteAddr)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
@@ -221,9 +221,9 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 				"org_id":     cfCert.OrgID,
 				"app_id":     cfCert.AppID,
 				"space_id":   cfCert.SpaceID,
-				"org_name":   cfNames.orgName,
-				"app_name":   cfNames.appName,
-				"space_name": cfNames.spaceName,
+				"org_name":   names.orgName,
+				"app_name":   names.appName,
+				"space_name": names.spaceName,
 			},
 		},
 	}
@@ -308,7 +308,7 @@ type cfNames struct {
 }
 
 func (b *backend) validate(ctx context.Context, config *models.Configuration, role *models.RoleEntry, cfCert *models.CFCertificate, reqConnRemoteAddr string) (*cfNames, error) {
-	cfNames := cfNames{}
+	names := cfNames{}
 	if !role.DisableIPMatching {
 		if !matchesIPAddress(reqConnRemoteAddr, net.ParseIP(cfCert.IPAddress)) {
 			return nil, errors.New("no matching IP address")
@@ -353,7 +353,7 @@ func (b *backend) validate(ctx context.Context, config *models.Configuration, ro
 	if app.Instances <= 0 {
 		return nil, errors.New("app doesn't have any live instances")
 	}
-	cfNames.appName = app.Name
+	names.appName = app.Name
 
 	// Check everything we can using the org ID.
 	var org cfclient.Org
@@ -371,7 +371,7 @@ func (b *backend) validate(ctx context.Context, config *models.Configuration, ro
 	if org.Guid != cfCert.OrgID {
 		return nil, fmt.Errorf("cert org ID %s doesn't match API's expected one of %s", cfCert.OrgID, org.Guid)
 	}
-	cfNames.orgName = org.Name
+	names.orgName = org.Name
 
 	// Check everything we can using the space ID.
 	var space cfclient.Space
@@ -392,8 +392,8 @@ func (b *backend) validate(ctx context.Context, config *models.Configuration, ro
 	if space.OrganizationGuid != cfCert.OrgID {
 		return nil, fmt.Errorf("cert org ID %s doesn't match API's expected one of %s", cfCert.OrgID, space.OrganizationGuid)
 	}
-	cfNames.spaceName = space.Name
-	return &cfNames, nil
+	names.spaceName = space.Name
+	return &names, nil
 }
 
 func meetsBoundConstraints(certValue string, constraints []string) bool {

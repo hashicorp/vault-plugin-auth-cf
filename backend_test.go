@@ -206,8 +206,8 @@ func TestBackend_Client(t *testing.T) {
 	originalClient = bEnd.cfClient
 	originalConfigHash = bEnd.lastConfigHash
 	t.Run("update config with same values", env.CreateConfig)
-	require.Equal(t, originalClient, bEnd.cfClient, "expected the CF client to be initialized")
-	require.Equal(t, originalConfigHash, bEnd.lastConfigHash, "expected the config hash to be updated")
+	require.Equal(t, originalClient, bEnd.cfClient, "expected the CF client to be the same")
+	require.Equal(t, originalConfigHash, bEnd.lastConfigHash, "expected the config hash to be the same")
 }
 
 // TestBackend_Login tests CF client behavior after an API request fails
