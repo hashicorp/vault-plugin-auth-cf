@@ -5,15 +5,16 @@ package main
 
 import (
 	"fmt"
-	"github.com/hashicorp/vault-plugin-auth-cf/testing/certificates"
 	"os"
 	"os/signal"
+
+	"github.com/hashicorp/vault-plugin-auth-cf/testing/certificates"
 
 	"github.com/hashicorp/vault-plugin-auth-cf/testing/cf"
 )
 
 func main() {
-	plainServer := cf.MockServer(true, nil)
+	plainServer := cf.MockServer(true, nil, map[string]int{})
 	defer plainServer.Close()
 
 	mtlsCerts, err := certificates.GenerateMTLS()
@@ -23,7 +24,7 @@ func main() {
 	}
 	defer mtlsCerts.Close()
 
-	mtlsServer := cf.MockServer(true, []string{mtlsCerts.SigningCA})
+	mtlsServer := cf.MockServer(true, []string{mtlsCerts.SigningCA}, map[string]int{})
 	defer mtlsServer.Close()
 
 	fmt.Println("plain server running at " + plainServer.URL)

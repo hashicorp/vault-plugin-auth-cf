@@ -57,11 +57,10 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 
 type backend struct {
 	*framework.Backend
-	mu              sync.RWMutex
-	cfClient        *cfclient.Client
-	cfClientMu      sync.RWMutex
-	lastConfigHash  *[32]byte
-	cfClientTainted bool
+	mu             sync.RWMutex
+	cfClient       *cfclient.Client
+	cfClientMu     sync.RWMutex
+	lastConfigHash *[32]byte
 }
 
 const backendHelp = `
@@ -71,6 +70,7 @@ CF's API, CF's instance identity credentials can be used to authenticate.'
 `
 
 var errCFClientNotInitialized = fmt.Errorf("client is not initialized")
+var errNilConfiguration = fmt.Errorf("configuration is nil")
 
 func (b *backend) getCFClient(_ context.Context) (*cfclient.Client, error) {
 	b.cfClientMu.RLock()
@@ -82,22 +82,15 @@ func (b *backend) getCFClient(_ context.Context) (*cfclient.Client, error) {
 	return b.cfClient, nil
 }
 
-func (b *backend) updateCFClient(ctx context.Context, config *models.Configuration) (bool, error) {
+func (b *backend) updateCFClient(ctx context.Context, config *models.Configuration) error {
 	b.cfClientMu.Lock()
 	defer b.cfClientMu.Unlock()
 
 	configHash, err := config.Hash()
 	if err != nil {
-		return false, err
+		return err
 	}
 
-	if !b.cfClientTainted && b.lastConfigHash != nil && b.cfClient != nil {
-		if *b.lastConfigHash == configHash {
-			return false, nil
-		}
-	}
-
-	b.cfClientTainted = false
 	if b.cfClient != nil {
 		if b.cfClient.Config.HttpClient != nil {
 			b.cfClient.Config.HttpClient.CloseIdleConnections()
@@ -106,24 +99,24 @@ func (b *backend) updateCFClient(ctx context.Context, config *models.Configurati
 
 	cfClient, err := b.newCFClient(ctx, config)
 	if err != nil {
-		return false, err
+		return err
 	}
 
 	b.cfClient = cfClient
 	b.lastConfigHash = &configHash
 
-	return true, nil
+	return nil
 }
 
 func (b *backend) getCFClientOrRefresh(ctx context.Context, config *models.Configuration) (*cfclient.Client, error) {
 	if config == nil {
-		return nil, fmt.Errorf("configuration is nil")
+		return nil, errNilConfiguration
 	}
 
 	client, err := b.getCFClient(ctx)
 	if err != nil {
 		if errors.Is(err, errCFClientNotInitialized) {
-			if _, err := b.updateCFClient(ctx, config); err != nil {
+			if err := b.updateCFClient(ctx, config); err != nil {
 				return nil, err
 			}
 			return b.getCFClient(ctx)
@@ -136,7 +129,7 @@ func (b *backend) getCFClientOrRefresh(ctx context.Context, config *models.Confi
 
 func (b *backend) newCFClient(_ context.Context, config *models.Configuration) (*cfclient.Client, error) {
 	if config == nil {
-		return nil, fmt.Errorf("configuration is nil")
+		return nil, errNilConfiguration
 	}
 
 	httpClient := cleanhttp.DefaultClient()
@@ -206,7 +199,7 @@ func (b *backend) initialize(ctx context.Context, req *logical.InitializationReq
 	}
 
 	if config != nil {
-		if _, err := b.updateCFClient(ctx, config); err != nil {
+		if err := b.updateCFClient(ctx, config); err != nil {
 			// We only log an error here, since we want the plugin to be able to come up.
 			// Subsequent calls to the plugin will attempt to update the client again.
 			b.Logger().Warn("init: failed to update CF client", "error", err)
