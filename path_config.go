@@ -345,7 +345,20 @@ func (b *backend) operationConfigWrite(ctx context.Context, req *logical.Request
 		return nil, err
 	}
 
-	if _, err := b.updateCFClient(ctx, config); err != nil {
+	// Do we need to update the CF client?
+	configHash, err := config.Hash()
+	if err != nil {
+		return logical.ErrorResponse(err.Error()), nil
+	}
+
+	if b.lastConfigHash != nil && b.cfClient != nil {
+		// If there is no config change, skip unnecessary update of CF client
+		if *b.lastConfigHash == configHash {
+			return nil, nil
+		}
+	}
+
+	if err := b.updateCFClient(ctx, config); err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
