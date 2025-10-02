@@ -1,3 +1,14 @@
+## v0.22.0
+### October 2, 2025
+
+* [COMPLIANCE] Add Copyright and License Headers (#128)
+* Automated dependency upgrades (#106)
+* bump go-version (#129)
+* Vault 29753 init changie (#127)
+* Add backport assistant workflow (#125)
+* Add backport assistant workflow (#124)
+* [Compliance] - PR Template Changes Required (#123)
+
 ## 0.21.0
 ### Jun 03, 2025
 
