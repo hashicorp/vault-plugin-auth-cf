@@ -202,28 +202,9 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		b.Logger().Debug(fmt.Sprintf("handling login attempt from %+v", cfCert))
 	}
 
-	client, err := b.getCFClientOrRefresh(ctx, config)
+	names, err := b.validate(ctx, config, role, cfCert, req.Connection.RemoteAddr)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
-	}
-
-	if err := b.validate(client, role, cfCert, req.Connection.RemoteAddr); err != nil {
-		return logical.ErrorResponse(err.Error()), nil
-	}
-
-	orgName, err := b.getOrgName(client, cfCert)
-	if err != nil {
-		return nil, err
-	}
-
-	appName, err := b.getAppName(client, cfCert)
-	if err != nil {
-		return nil, err
-	}
-
-	spaceName, err := b.getSpaceName(client, cfCert)
-	if err != nil {
-		return nil, err
 	}
 
 	// Everything checks out.
@@ -240,9 +221,9 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 				"org_id":     cfCert.OrgID,
 				"app_id":     cfCert.AppID,
 				"space_id":   cfCert.SpaceID,
-				"org_name":   orgName,
-				"app_name":   appName,
-				"space_name": spaceName,
+				"org_name":   names.orgName,
+				"app_name":   names.appName,
+				"space_name": names.spaceName,
 			},
 		},
 	}
@@ -305,15 +286,11 @@ func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data
 
 	// Reconstruct the certificate and ensure it still meets all constraints.
 	cfCert, err := models.NewCFCertificate(instanceID, orgID, spaceID, appID, ipAddr)
-
-	client, err := b.getCFClientOrRefresh(ctx, config)
 	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
+		return nil, err
 	}
 
-	if err := b.validate(client, role, cfCert, req.Connection.RemoteAddr); err != nil {
-		// taint the client on error so that it will be refreshed on the next login attempt
-		b.cfClientTainted = true
+	if _, err := b.validate(ctx, config, role, cfCert, req.Connection.RemoteAddr); err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
@@ -324,23 +301,30 @@ func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data
 	return resp, nil
 }
 
-func (b *backend) validate(client *cfclient.Client, role *models.RoleEntry, cfCert *models.CFCertificate, reqConnRemoteAddr string) error {
+type cfNames struct {
+	orgName   string
+	appName   string
+	spaceName string
+}
+
+func (b *backend) validate(ctx context.Context, config *models.Configuration, role *models.RoleEntry, cfCert *models.CFCertificate, reqConnRemoteAddr string) (*cfNames, error) {
+	names := cfNames{}
 	if !role.DisableIPMatching {
 		if !matchesIPAddress(reqConnRemoteAddr, net.ParseIP(cfCert.IPAddress)) {
-			return errors.New("no matching IP address")
+			return nil, errors.New("no matching IP address")
 		}
 	}
 	if !meetsBoundConstraints(cfCert.InstanceID, role.BoundInstanceIDs) {
-		return fmt.Errorf("instance ID %s doesn't match role constraints of %s", cfCert.InstanceID, role.BoundInstanceIDs)
+		return nil, fmt.Errorf("instance ID %s doesn't match role constraints of %s", cfCert.InstanceID, role.BoundInstanceIDs)
 	}
 	if !meetsBoundConstraints(cfCert.AppID, role.BoundAppIDs) {
-		return fmt.Errorf("app ID %s doesn't match role constraints of %s", cfCert.AppID, role.BoundAppIDs)
+		return nil, fmt.Errorf("app ID %s doesn't match role constraints of %s", cfCert.AppID, role.BoundAppIDs)
 	}
 	if !meetsBoundConstraints(cfCert.OrgID, role.BoundOrgIDs) {
-		return fmt.Errorf("org ID %s doesn't match role constraints of %s", cfCert.OrgID, role.BoundOrgIDs)
+		return nil, fmt.Errorf("org ID %s doesn't match role constraints of %s", cfCert.OrgID, role.BoundOrgIDs)
 	}
 	if !meetsBoundConstraints(cfCert.SpaceID, role.BoundSpaceIDs) {
-		return fmt.Errorf("space ID %s doesn't match role constraints of %s", cfCert.SpaceID, role.BoundSpaceIDs)
+		return nil, fmt.Errorf("space ID %s doesn't match role constraints of %s", cfCert.SpaceID, role.BoundSpaceIDs)
 	}
 	// Use the CF API to ensure everything still exists and to verify whatever we can.
 
@@ -348,68 +332,68 @@ func (b *backend) validate(client *cfclient.Client, role *models.RoleEntry, cfCe
 	// but currently there's no known way to do that via the cf API.
 
 	// Check everything we can using the app ID.
-	app, err := client.AppByGuid(cfCert.AppID)
+	var app cfclient.App
+	err := b.withRetryCFClient(ctx, config, func(client *cfclient.Client) error {
+		var err error
+		app, err = client.AppByGuid(cfCert.AppID)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve app %s: %w", cfCert.AppID, err)
+		}
+		return nil
+	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if app.Guid != cfCert.AppID {
-		return fmt.Errorf("cert app ID %s doesn't match API's expected one of %s", cfCert.AppID, app.Guid)
+		return nil, fmt.Errorf("cert app ID %s doesn't match API's expected one of %s", cfCert.AppID, app.Guid)
 	}
 	if app.SpaceGuid != cfCert.SpaceID {
-		return fmt.Errorf("cert space ID %s doesn't match API's expected one of %s", cfCert.SpaceID, app.SpaceGuid)
+		return nil, fmt.Errorf("cert space ID %s doesn't match API's expected one of %s", cfCert.SpaceID, app.SpaceGuid)
 	}
 	if app.Instances <= 0 {
-		return errors.New("app doesn't have any live instances")
+		return nil, errors.New("app doesn't have any live instances")
 	}
+	names.appName = app.Name
 
 	// Check everything we can using the org ID.
-	org, err := client.GetOrgByGuid(cfCert.OrgID)
+	var org cfclient.Org
+	err = b.withRetryCFClient(ctx, config, func(client *cfclient.Client) error {
+		var err error
+		org, err = client.GetOrgByGuid(cfCert.OrgID)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve org %s: %w", cfCert.OrgID, err)
+		}
+		return nil
+	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if org.Guid != cfCert.OrgID {
-		return fmt.Errorf("cert org ID %s doesn't match API's expected one of %s", cfCert.OrgID, org.Guid)
+		return nil, fmt.Errorf("cert org ID %s doesn't match API's expected one of %s", cfCert.OrgID, org.Guid)
 	}
+	names.orgName = org.Name
 
 	// Check everything we can using the space ID.
-	space, err := client.GetSpaceByGuid(cfCert.SpaceID)
+	var space cfclient.Space
+	err = b.withRetryCFClient(ctx, config, func(client *cfclient.Client) error {
+		var err error
+		space, err = client.GetSpaceByGuid(cfCert.SpaceID)
+		if err != nil {
+			return fmt.Errorf("failed to retrieve space %s: %w", cfCert.SpaceID, err)
+		}
+		return nil
+	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if space.Guid != cfCert.SpaceID {
-		return fmt.Errorf("cert space ID %s doesn't match API's expected one of %s", cfCert.SpaceID, space.Guid)
+		return nil, fmt.Errorf("cert space ID %s doesn't match API's expected one of %s", cfCert.SpaceID, space.Guid)
 	}
 	if space.OrganizationGuid != cfCert.OrgID {
-		return fmt.Errorf("cert org ID %s doesn't match API's expected one of %s", cfCert.OrgID, space.OrganizationGuid)
+		return nil, fmt.Errorf("cert org ID %s doesn't match API's expected one of %s", cfCert.OrgID, space.OrganizationGuid)
 	}
-	return nil
-}
-
-func (b *backend) getOrgName(client *cfclient.Client, cfCert *models.CFCertificate) (string, error) {
-	org, err := client.GetOrgByGuid(cfCert.OrgID)
-	if err != nil {
-		return "", err
-	}
-
-	return org.Name, nil
-}
-
-func (b *backend) getAppName(client *cfclient.Client, cfCert *models.CFCertificate) (string, error) {
-	app, err := client.AppByGuid(cfCert.AppID)
-	if err != nil {
-		return "", err
-	}
-
-	return app.Name, nil
-}
-
-func (b *backend) getSpaceName(client *cfclient.Client, cfCert *models.CFCertificate) (string, error) {
-	space, err := client.GetSpaceByGuid(cfCert.SpaceID)
-	if err != nil {
-		return "", err
-	}
-
-	return space.Name, nil
+	names.spaceName = space.Name
+	return &names, nil
 }
 
 func meetsBoundConstraints(certValue string, constraints []string) bool {
@@ -478,3 +462,40 @@ Authenticate CF entities using a client certificate issued by the
 configured Certificate Authority, and signed by a client key belonging
 to the client certificate.
 `
+
+func (b *backend) withRetryCFClient(
+	ctx context.Context,
+	config *models.Configuration,
+	cfCall func(client *cfclient.Client) error,
+) error {
+	client, err := b.getCFClientOrRefresh(ctx, config)
+	if err != nil {
+		return fmt.Errorf("error fetching client: %w", err)
+	}
+
+	// First attempt with current client
+	err = cfCall(client)
+	if err == nil {
+		return nil
+	}
+
+	b.Logger().Warn("CF client call failed, retrying with new client", "err", err)
+
+	// Attempt to rebuild the client
+	err = b.updateCFClient(ctx, config)
+	if err != nil {
+		return fmt.Errorf("failed to reinitialize CF client: %w", err)
+	}
+
+	// refetch client after update
+	client, err = b.getCFClientOrRefresh(ctx, config)
+	if err != nil {
+		return fmt.Errorf("error fetching client: %w", err)
+	}
+
+	err = cfCall(client)
+	if err != nil {
+		return fmt.Errorf("CF client call failed after retry: %w", err)
+	}
+	return nil
+}

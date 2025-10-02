@@ -41,9 +41,11 @@ var (
 	logger        = hclog.Default()
 )
 
-func MockServer(loud bool, casToTrust []string) *httptest.Server {
+// simulateFailures is a map that can be used to simulate failures for specific endpoints.
+// the key should be the path of the endpoint, and the value is the number of times the endpoint should fail before returning a successful response.
+func MockServer(loud bool, casToTrust []string, simulateFailures map[string]int) *httptest.Server {
+	failureTracking := make(map[string]int)
 	testServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
 		if loud {
 			logger.Info(fmt.Sprintf("%+v", r))
 		}
@@ -53,46 +55,107 @@ func MockServer(loud bool, casToTrust []string) *httptest.Server {
 		lastPathField := pathFields[len(pathFields)-1]
 		switch lastPathField {
 		case "token":
+			if target, ok := simulateFailures["token"]; ok {
+				if failureTracking["token"] < target {
+					failureTracking["token"]++
+					w.WriteHeader(500)
+					break
+				}
+			}
 			w.Header().Add("Content-Type", "application/json;charset=UTF-8")
 			w.WriteHeader(200)
 			w.Write([]byte(tokenResponse))
 
 		case "info":
+			if target, ok := simulateFailures["info"]; ok {
+				if failureTracking["info"] < target {
+					failureTracking["info"]++
+					w.WriteHeader(500)
+					break
+				}
+			}
 			w.WriteHeader(200)
 			w.Write([]byte(strings.Replace(infoResponse, "{{TEST_URL}}", testServerUrl, -1)))
-
 		case FoundServiceGUID:
+			if target, ok := simulateFailures[FoundServiceGUID]; ok {
+				if failureTracking[FoundServiceGUID] < target {
+					failureTracking[FoundServiceGUID]++
+					w.WriteHeader(500)
+					break
+				}
+			}
 			w.WriteHeader(200)
 			w.Write([]byte(serviceInstanceResponse))
-
 		case UnfoundServiceGUID:
+			if target, ok := simulateFailures[UnfoundServiceGUID]; ok {
+				if failureTracking[UnfoundServiceGUID] < target {
+					failureTracking[UnfoundServiceGUID]++
+					w.WriteHeader(500)
+					break
+				}
+			}
 			w.WriteHeader(404)
 			w.Write([]byte(unfoundServiceInstanceResponse))
-
 		case FoundAppGUID:
+			if target, ok := simulateFailures[FoundAppGUID]; ok {
+				if failureTracking[FoundAppGUID] < target {
+					failureTracking[FoundAppGUID]++
+					w.WriteHeader(500)
+					break
+				}
+			}
 			w.WriteHeader(200)
 			w.Write([]byte(appResponse))
-
 		case UnfoundAppGUID:
+			if target, ok := simulateFailures[UnfoundAppGUID]; ok {
+				if failureTracking[UnfoundAppGUID] < target {
+					failureTracking[UnfoundAppGUID]++
+					w.WriteHeader(500)
+					break
+				}
+			}
 			w.WriteHeader(404)
 			w.Write([]byte(unfoundAppResponse))
-
 		case FoundOrgGUID:
+			if target, ok := simulateFailures[FoundOrgGUID]; ok {
+				if failureTracking[FoundOrgGUID] < target {
+					failureTracking[FoundOrgGUID]++
+					w.WriteHeader(500)
+					break
+				}
+			}
 			w.WriteHeader(200)
 			w.Write([]byte(orgResponse))
-
 		case UnfoundOrgID:
+			if target, ok := simulateFailures[UnfoundOrgID]; ok {
+				if failureTracking[UnfoundOrgID] < target {
+					failureTracking[UnfoundOrgID]++
+					w.WriteHeader(500)
+					break
+				}
+			}
 			w.WriteHeader(404)
 			w.Write([]byte(unfoundOrgResponse))
-
 		case FoundSpaceGUID:
+			if target, ok := simulateFailures[FoundSpaceGUID]; ok {
+				if failureTracking[FoundSpaceGUID] < target {
+					failureTracking[FoundSpaceGUID]++
+					w.WriteHeader(500)
+					break
+				}
+			}
 			w.WriteHeader(200)
 			w.Write([]byte(spaceResponse))
-
 		case UnfoundSpaceGUID:
+			if target, ok := simulateFailures[UnfoundSpaceGUID]; ok {
+				if failureTracking[UnfoundSpaceGUID] < target {
+					failureTracking[UnfoundSpaceGUID]++
+					w.WriteHeader(500)
+					break
+				}
+			}
 			w.WriteHeader(404)
 			w.Write([]byte(unfoundSpaceResponse))
-
 		default:
 			w.WriteHeader(400)
 			w.Write([]byte(fmt.Sprintf("unexpected object identifier: %s", lastPathField)))
