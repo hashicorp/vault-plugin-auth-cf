@@ -202,9 +202,17 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		b.Logger().Debug(fmt.Sprintf("handling login attempt from %+v", cfCert))
 	}
 
-	client, err := b.getCFClientOrRefresh(ctx, config)
-	if err != nil {
-		return logical.ErrorResponse(err.Error()), nil
+	var client *cfclient.Client
+	if config.ForceNewClient {
+		client, err = util.NewCFClient(config)
+		if err != nil {
+			return logical.ErrorResponse(err.Error()), nil
+		}
+	} else {
+		client, err = b.getCFClientOrRefresh(ctx, config)
+		if err != nil {
+			return logical.ErrorResponse(err.Error()), nil
+		}
 	}
 
 	if err := b.validate(client, role, cfCert, req.Connection.RemoteAddr); err != nil {
@@ -474,7 +482,7 @@ Authenticates an entity with Vault.
 `
 
 const pathLoginDesc = `
-Authenticate CF entities using a client certificate issued by the 
+Authenticate CF entities using a client certificate issued by the
 configured Certificate Authority, and signed by a client key belonging
 to the client certificate.
 `

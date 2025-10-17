@@ -14,6 +14,9 @@ IMPROVEMENTS:
 
 * Bump golang.org/x/net from 0.34.0 to 0.38.0
 
+IMPROVEMENTS:
+* add option to use a new CF client for each request [GH-107](https://github.com/hashicorp/vault-plugin-auth-cf/pull/107)
+
 BUGS:
 
 * Fix a bug where the `cf_timeout` user-provided value was always ignored [GH-104](https://github.com/hashicorp/vault-plugin-auth-cf/pull/104)
