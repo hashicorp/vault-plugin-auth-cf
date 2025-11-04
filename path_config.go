@@ -399,8 +399,8 @@ func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request,
 			"cf_timeout":                    config.CFTimeout.Seconds(),
 			"cf_client_id":                  config.CFClientID,
 			"login_max_seconds_not_before":  config.LoginMaxSecNotBefore / time.Second,
-			"force_new_client":              config.ForceNewClient,
 			"login_max_seconds_not_after":   config.LoginMaxSecNotAfter / time.Second,
+			"force_new_client":              config.ForceNewClient,
 		},
 	}
 	// Populate any deprecated values and warn about them. These should just be stripped when we go to
