@@ -468,6 +468,7 @@ func (e *Env) UpdateConfig(t *testing.T) {
 }
 
 func (e *Env) UpdateConfigWithForceNewClient(t *testing.T, forceNewClient bool) {
+	e.TestConf.ForceNewClient = forceNewClient
 	req := &logical.Request{
 		Operation: logical.UpdateOperation,
 		Path:      "config",
