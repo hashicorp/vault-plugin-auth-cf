@@ -365,13 +365,12 @@ func (b *backend) operationConfigWrite(ctx context.Context, req *logical.Request
 	if config.ForceNewClient {
 		// To give early and explicit feedback, make sure the config works by executing a test call.
 		// This will create a new client but will not cache it.
-		if _, err := b.newCFClient(ctx, config); err != nil {
-			return logical.ErrorResponse(err.Error()), nil
-		}
+		_, err = b.newCFClient(ctx, config)
 	} else {
-		if _, err := b.updateCFClient(ctx, config); err != nil {
-			return logical.ErrorResponse(err.Error()), nil
-		}
+		_, err = b.updateCFClient(ctx, config)
+	}
+	if err != nil {
+		return logical.ErrorResponse(err.Error()), nil
 	}
 
 	return nil, nil
