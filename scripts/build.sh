@@ -4,8 +4,9 @@
 
 
 TOOL=vault-plugin-auth-cf
-#
+
 # This script builds the application from source for a platform.
+
 set -e
 
 GO_CMD=${GO_CMD:-go}
@@ -19,7 +20,7 @@ DIR="$( cd -P "$( dirname "$SOURCE" )/.." && pwd )"
 cd "$DIR"
 
 # Set build tags
-BUILD_TAGS="${BUILD_TAGS}:-${TOOL}"
+BUILD_TAGS="${BUILD_TAGS:-${TOOL}}"
 
 # Get the git commit
 GIT_COMMIT="$(git rev-parse HEAD)"
