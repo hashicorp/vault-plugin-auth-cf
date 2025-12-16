@@ -73,6 +73,9 @@ type Configuration struct {
 
 	// Deprecated: use CFPassword instead.
 	PCFPassword string `json:"pcf_password"`
+
+	// ForceNewClient forces creation of a new CF client for every login request instead of using a cached shared client.
+	ForceNewClient bool `json:"force_new_client"`
 }
 
 // Hash returns a hash of the configuration as a BLAKE2b-256 checksum.
