@@ -206,10 +206,6 @@ func (b *backend) initialize(ctx context.Context, req *logical.InitializationReq
 	}
 
 	if config != nil {
-		if config.ForceNewClient {
-			//Skip creation of cf client during initialization
-			return nil
-		}
 		if _, err := b.updateCFClient(ctx, config); err != nil {
 			// We only log an error here, since we want the plugin to be able to come up.
 			// Subsequent calls to the plugin will attempt to update the client again.
