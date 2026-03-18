@@ -161,14 +161,6 @@ Set low to reduce the opportunity for replay attacks.`,
 Set low to reduce the opportunity for replay attacks.`,
 				Default: 60,
 			},
-			"force_new_client": {
-				Type: framework.TypeBool,
-				DisplayAttrs: &framework.DisplayAttributes{
-					Name: "Force New Client",
-				},
-				Description: "When set to true, forces creation of a new CF client for every login request instead of using a cached shared client.",
-				Default:     false,
-			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.UpdateOperation: &framework.PathOperation{
@@ -284,11 +276,6 @@ func (b *backend) operationConfigWrite(ctx context.Context, req *logical.Request
 			cfTimeout = time.Duration(raw.(int)) * time.Second
 		}
 
-		forceNewClient := false
-		if raw, ok := data.GetOk("force_new_client"); ok {
-			forceNewClient = raw.(bool)
-		}
-
 		config = &models.Configuration{
 			Version:                1,
 			IdentityCACertificates: identityCACerts,
@@ -303,7 +290,6 @@ func (b *backend) operationConfigWrite(ctx context.Context, req *logical.Request
 			LoginMaxSecNotBefore:   loginMaxSecNotBefore,
 			LoginMaxSecNotAfter:    loginMaxSecNotAfter,
 			CFTimeout:              cfTimeout,
-			ForceNewClient:         forceNewClient,
 		}
 	} else {
 		// They're updating a config. Only update the fields that have been sent in the call.
@@ -345,9 +331,6 @@ func (b *backend) operationConfigWrite(ctx context.Context, req *logical.Request
 		if raw, ok := data.GetOk("cf_timeout"); ok {
 			config.CFTimeout = time.Duration(raw.(int)) * time.Second
 		}
-		if raw, ok := data.GetOk("force_new_client"); ok {
-			config.ForceNewClient = raw.(bool)
-		}
 	}
 
 	if err := storeConfig(ctx, req.Storage, config); err != nil {
@@ -362,14 +345,7 @@ func (b *backend) operationConfigWrite(ctx context.Context, req *logical.Request
 		return nil, err
 	}
 
-	if config.ForceNewClient {
-		// To give early and explicit feedback, make sure the config works by executing a test call.
-		// This will create a new client but will not cache it.
-		_, err = b.newCFClient(ctx, config)
-	} else {
-		_, err = b.updateCFClient(ctx, config)
-	}
-	if err != nil {
+	if _, err := b.updateCFClient(ctx, config); err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
 
@@ -399,7 +375,6 @@ func (b *backend) operationConfigRead(ctx context.Context, req *logical.Request,
 			"cf_client_id":                  config.CFClientID,
 			"login_max_seconds_not_before":  config.LoginMaxSecNotBefore / time.Second,
 			"login_max_seconds_not_after":   config.LoginMaxSecNotAfter / time.Second,
-			"force_new_client":              config.ForceNewClient,
 		},
 	}
 	// Populate any deprecated values and warn about them. These should just be stripped when we go to

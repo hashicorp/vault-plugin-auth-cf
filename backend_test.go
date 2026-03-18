@@ -212,111 +212,6 @@ func TestBackendMTLS(t *testing.T) {
 	t.Run("login", env.Login)
 }
 
-func TestBackendForceNewClient(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-	storage := &logical.InmemStorage{}
-
-	testCerts, err := certificates.Generate(cf.FoundServiceGUID, cf.FoundOrgGUID, cf.FoundSpaceGUID, cf.FoundAppGUID, "10.255.181.105")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		if err := testCerts.Close(); err != nil {
-			t.Fatal(err)
-		}
-	}()
-
-	invalidCaCertBytes, err := ioutil.ReadFile("testdata/real-certificates/ca.crt")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cfServer := cf.MockServer(false, nil)
-	defer cfServer.Close()
-
-	testConf := &models.Configuration{
-		IdentityCACertificates: []string{testCerts.CACertificate, string(invalidCaCertBytes)},
-		CFAPIAddr:              cfServer.URL,
-		CFUsername:             cf.AuthUsername,
-		CFPassword:             cf.AuthPassword,
-		CFClientID:             cf.AuthClientID,
-		CFClientSecret:         cf.AuthClientSecret,
-		CFTimeout:              30 * time.Second,
-		LoginMaxSecNotBefore:   5,
-		LoginMaxSecNotAfter:    1,
-		ForceNewClient:         true,
-	}
-
-	be, err := Factory(ctx, &logical.BackendConfig{
-		StorageView: storage,
-		Logger:      hclog.Default(),
-		System: &logical.StaticSystemView{
-			DefaultLeaseTTLVal: time.Hour,
-			MaxLeaseTTLVal:     time.Hour,
-		},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	parsedCIDRs, err := parseutil.ParseAddrs([]string{"10.255.181.105/24"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	env := &Env{
-		Ctx:      ctx,
-		Storage:  storage,
-		Backend:  be,
-		TestConf: testConf,
-		TestRole: &models.RoleEntry{
-			BoundAppIDs:      []string{cf.FoundAppGUID},
-			BoundSpaceIDs:    []string{cf.FoundSpaceGUID},
-			BoundOrgIDs:      []string{cf.FoundOrgGUID},
-			BoundInstanceIDs: []string{cf.FoundServiceGUID},
-			BoundCIDRs:       parsedCIDRs,
-			Policies:         []string{"default", "foo"},
-			TTL:              60,
-			MaxTTL:           2 * 60,
-			Period:           5 * 60,
-		},
-		TestCerts: testCerts,
-	}
-	b := env.Backend.(*backend)
-
-	require.Nil(t, b.cfClient, "expected the cached CF client to be nil")
-	// Exercise all the endpoints with ForceNewClient=true
-	t.Run("create config with force_new_client set", env.CreateConfig)
-	t.Run("read config with force_new_client set", env.ReadConfig)
-	t.Run("create role", env.CreateRole)
-	t.Run("login with force_new_client set", env.Login)
-
-	// Test that login still works with force_new_client=true (creates a fresh CF client each time)
-	t.Run("second login with force_new_client set", env.Login)
-	require.Nil(t, b.cfClient, "expected the cached CF client to be nil")
-
-	//Update force_new_client to false and verify that CF client is cached
-	t.Run("update config with force_new_client unset", func(t *testing.T) {
-		env.UpdateConfigWithForceNewClient(t, false)
-	})
-
-	t.Run("read config with force_new_client unset", env.ReadConfig)
-	t.Run("login with force_new_client unset", env.Login)
-	originalCFClient := b.cfClient
-	require.NotNil(t, originalCFClient, "expected the cached CF client to be not nil")
-	t.Run("login again with force_new_client unset", env.Login)
-	assert.Equal(t, originalCFClient, b.cfClient, "expected the cached CF client to be reused")
-
-	// Test that login works when we update the force_new_client to true again
-	t.Run("update config with force_new_client set", func(t *testing.T) {
-		env.UpdateConfigWithForceNewClient(t, true)
-	})
-
-	t.Run("read config with force_new_client set", env.ReadConfig)
-	t.Run("login with force_new_client set", env.Login)
-}
-
 type Env struct {
 	Ctx     context.Context
 	Storage logical.Storage
@@ -387,7 +282,6 @@ func (e *Env) CreateConfig(t *testing.T) {
 			"cf_timeout":                    e.TestConf.CFTimeout,
 			"login_max_seconds_not_before":  12,
 			"login_max_seconds_not_after":   13,
-			"force_new_client":              e.TestConf.ForceNewClient,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Ctx, req)
@@ -444,9 +338,6 @@ func (e *Env) ReadConfig(t *testing.T) {
 	if resp.Data["cf_timeout"] != e.TestConf.CFTimeout.Seconds() {
 		t.Fatalf("expected %f but received %f", e.TestConf.CFTimeout.Seconds(), resp.Data["cf_timeout"])
 	}
-	if resp.Data["force_new_client"] != e.TestConf.ForceNewClient {
-		t.Fatalf("expected %t but received %v", e.TestConf.ForceNewClient, resp.Data["force_new_client"])
-	}
 }
 
 func (e *Env) UpdateConfig(t *testing.T) {
@@ -456,25 +347,6 @@ func (e *Env) UpdateConfig(t *testing.T) {
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
 			"identity_ca_certificates": []string{"foo1", "foo2"},
-		},
-	}
-	resp, err := e.Backend.HandleRequest(e.Ctx, req)
-	if err != nil || (resp != nil && resp.IsError()) {
-		t.Fatalf("bad: resp: %#v\nerr:%v", resp, err)
-	}
-	if resp != nil {
-		t.Fatal("expected nil response to represent a 204")
-	}
-}
-
-func (e *Env) UpdateConfigWithForceNewClient(t *testing.T, forceNewClient bool) {
-	e.TestConf.ForceNewClient = forceNewClient
-	req := &logical.Request{
-		Operation: logical.UpdateOperation,
-		Path:      "config",
-		Storage:   e.Storage,
-		Data: map[string]interface{}{
-			"force_new_client": forceNewClient,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Ctx, req)
@@ -1231,24 +1103,6 @@ func Test_backend_initialize(t *testing.T) {
 				wantErr: assert.Error,
 			},
 		},
-		{
-			name:          "force-new-client-true-skips-initialization",
-			wantClientSet: false,
-			cfClientTest: cfClientTest{
-				config:         newConfigWithForceNewClientSet(t, true),
-				withMockServer: true,
-				wantErr:        assert.NoError,
-			},
-		},
-		{
-			name:          "force-new-client-false-initializes-client",
-			wantClientSet: true,
-			cfClientTest: cfClientTest{
-				config:         newConfigWithForceNewClientSet(t, false),
-				withMockServer: true,
-				wantErr:        assert.NoError,
-			},
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1311,13 +1165,6 @@ func newConfig(t *testing.T) *models.Configuration {
 		CFUsername: "admin",
 		CFPassword: "password",
 	}
-}
-
-func newConfigWithForceNewClientSet(t *testing.T, forceNewClient bool) *models.Configuration {
-	t.Helper()
-	config := newConfig(t)
-	config.ForceNewClient = forceNewClient
-	return config
 }
 
 func initReq(t *testing.T, ctx context.Context, config *models.Configuration) *logical.InitializationRequest {
