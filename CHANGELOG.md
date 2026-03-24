@@ -1,3 +1,15 @@
+## v0.23.0
+### March 24, 2026
+
+* Revert "VAULT-40025 Add configuration to optionally revert to new client crea…" (#142)
+* Prepare v0.23.0 release (#143)
+* Bump golang.org/x/crypto from 0.42.0 to 0.45.0 (#135)
+* [COMPLIANCE] Update Copyright and License Headers (#136)
+* VAULT-40025 Add configuration to optionally revert to new client creation for every login request (pre-0.18.0) (#133)
+* Fix BUILD_TAGS in build script (#137)
+* Update changelog for v0.22.0 release (#130)
+* chore: remove changie (#131)
+
 ## Unreleased
 ## v0.23.0
 ### March 18, 2026
