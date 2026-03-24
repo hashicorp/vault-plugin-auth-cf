@@ -202,13 +202,7 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 		b.Logger().Debug(fmt.Sprintf("handling login attempt from %+v", cfCert))
 	}
 
-	var client *cfclient.Client
-	if config.ForceNewClient {
-		//Create a new client for every login request
-		client, err = b.newCFClient(ctx, config)
-	} else {
-		client, err = b.getCFClientOrRefresh(ctx, config)
-	}
+	client, err := b.getCFClientOrRefresh(ctx, config)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
@@ -312,12 +306,7 @@ func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data
 	// Reconstruct the certificate and ensure it still meets all constraints.
 	cfCert, err := models.NewCFCertificate(instanceID, orgID, spaceID, appID, ipAddr)
 
-	var client *cfclient.Client
-	if config.ForceNewClient {
-		client, err = b.newCFClient(ctx, config)
-	} else {
-		client, err = b.getCFClientOrRefresh(ctx, config)
-	}
+	client, err := b.getCFClientOrRefresh(ctx, config)
 	if err != nil {
 		return logical.ErrorResponse(err.Error()), nil
 	}
