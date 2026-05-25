@@ -204,7 +204,7 @@ func (b *backend) operationLoginUpdate(ctx context.Context, req *logical.Request
 
 	var client *cfclient.Client
 	if config.ForceNewClient {
-		//Create a new client for every login request
+		// Create a new client for every login request
 		client, err = b.newCFClient(ctx, config)
 	} else {
 		client, err = b.getCFClientOrRefresh(ctx, config)
@@ -311,6 +311,9 @@ func (b *backend) pathLoginRenew(ctx context.Context, req *logical.Request, data
 
 	// Reconstruct the certificate and ensure it still meets all constraints.
 	cfCert, err := models.NewCFCertificate(instanceID, orgID, spaceID, appID, ipAddr)
+	if err != nil {
+		return nil, err
+	}
 
 	var client *cfclient.Client
 	if config.ForceNewClient {
