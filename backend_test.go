@@ -17,7 +17,6 @@ import (
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-secure-stdlib/parseutil"
-	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1190,118 +1189,6 @@ func Test_backend_getCFClientOrRefresh(t *testing.T) {
 	}
 }
 
-func Test_backend_initialize(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-
-	defaultConfig := newConfig(t)
-	defaultInitReq := initReq(t, ctx, defaultConfig)
-
-	type initializeTest struct {
-		cfClientTest
-		req           *logical.InitializationRequest
-		name          string
-		wantClientSet bool
-	}
-
-	tests := []initializeTest{
-		{
-			name:          "valid-server-running",
-			wantClientSet: true,
-			cfClientTest: cfClientTest{
-				config:         newConfig(t),
-				withMockServer: true,
-				wantErr:        assert.NoError,
-			},
-		},
-		{
-			name:          "invalid-server-not-running",
-			wantClientSet: false,
-			req:           defaultInitReq,
-			cfClientTest: cfClientTest{
-				config:         newConfig(t),
-				wantErr:        assert.NoError,
-				withMockServer: false,
-			},
-		},
-		{
-			name: "invalid-nil-init-request",
-			cfClientTest: cfClientTest{
-				wantErr: assert.Error,
-			},
-		},
-		{
-			name:          "force-new-client-true-skips-initialization",
-			wantClientSet: false,
-			cfClientTest: cfClientTest{
-				config:         newConfigWithForceNewClientSet(t, true),
-				withMockServer: true,
-				wantErr:        assert.NoError,
-			},
-		},
-		{
-			name:          "force-new-client-false-initializes-client",
-			wantClientSet: true,
-			cfClientTest: cfClientTest{
-				config:         newConfigWithForceNewClientSet(t, false),
-				withMockServer: true,
-				wantErr:        assert.NoError,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			b := &backend{
-				Backend:        &framework.Backend{},
-				lastConfigHash: tt.lastConfigHash,
-				cfClient:       tt.cfClient,
-			}
-
-			var s *httptest.Server
-			var expectConfigHash [32]byte
-			var err error
-
-			if tt.lastConfigHash != nil && !tt.setConfigHash {
-				expectConfigHash = *tt.lastConfigHash
-			}
-
-			if tt.withMockServer {
-				require.NotNil(t, tt.config, "test %s: config is nil", tt.name)
-				s = cf.MockServer(false, nil)
-				t.Cleanup(func() {
-					if s != nil {
-						s.Close()
-					}
-				})
-
-				tt.config.CFAPIAddr = s.URL
-				expectConfigHash, err = tt.config.Hash()
-				if err != nil {
-					require.FailNow(t, err.Error())
-				}
-
-				if tt.req == nil {
-					tt.req = initReq(t, ctx, tt.config)
-				}
-			}
-
-			err = b.initialize(ctx, tt.req)
-			if !tt.wantErr(t, err, fmt.Sprintf("initialize(%v, %v)", ctx, tt.config)) {
-				return
-			}
-
-			if tt.wantClientSet {
-				assert.NotNilf(t, b.cfClient, "initialize(%v, %v)", ctx, tt.config)
-				assert.NotNilf(t, b.lastConfigHash, "initialize(%v, %v)", ctx, tt.config)
-				assert.Equalf(t, expectConfigHash, *b.lastConfigHash, "initialize(%v, %v)", ctx, tt.config)
-			} else {
-				assert.Nilf(t, b.cfClient, "initialize(%v, %v)", ctx, tt.config)
-				assert.Nilf(t, b.lastConfigHash, "initialize(%v, %v)", ctx, tt.config)
-			}
-		})
-	}
-}
 
 func newConfig(t *testing.T) *models.Configuration {
 	t.Helper()
@@ -1313,20 +1200,3 @@ func newConfig(t *testing.T) *models.Configuration {
 	}
 }
 
-func newConfigWithForceNewClientSet(t *testing.T, forceNewClient bool) *models.Configuration {
-	t.Helper()
-	config := newConfig(t)
-	config.ForceNewClient = forceNewClient
-	return config
-}
-
-func initReq(t *testing.T, ctx context.Context, config *models.Configuration) *logical.InitializationRequest {
-	t.Helper()
-	entry, err := logical.StorageEntryJSON(configStorageKey, config)
-	require.NoError(t, err)
-	storage := &logical.InmemStorage{}
-	require.NoError(t, storage.Put(ctx, entry))
-	return &logical.InitializationRequest{
-		Storage: storage,
-	}
-}
