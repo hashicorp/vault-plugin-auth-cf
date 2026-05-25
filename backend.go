@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/hashicorp/go-cleanhttp"
@@ -181,6 +182,11 @@ func (b *backend) newCFClient(_ context.Context, config *models.Configuration) (
 
 	clientConf.HttpClient.Transport = &http.Transport{
 		TLSClientConfig: tlsConfig,
+		// IdleConnTimeout bounds how long idle keep-alive connections linger in
+		// the per-request transport before being closed. Without this, abandoned
+		// transports accumulate open connections until the GC runs.
+		// 90s matches Go's DefaultTransport.
+		IdleConnTimeout: 90 * time.Second,
 	}
 
 	// unfortunately, cfclient.NewClient() has a nasty side effect of reaching out
@@ -189,4 +195,3 @@ func (b *backend) newCFClient(_ context.Context, config *models.Configuration) (
 	// should be a priority.
 	return cfclient.NewClient(clientConf)
 }
-
