@@ -366,9 +366,9 @@ func (b *backend) operationConfigWrite(ctx context.Context, req *logical.Request
 		// To give early and explicit feedback, make sure the config works by executing a test call.
 		// This will create a new client but will not cache it.
 		_, err = b.newCFClient(ctx, config)
-	
+
 		// Drop any cached client so we don't hold stale connections/state while operating
- 		// in per-request client mode (and so switching back to cached mode forces a refresh).
+		// in per-request client mode (and so switching back to cached mode forces a refresh).
 		b.cfClientMu.Lock()
 		if b.cfClient != nil {
 			if b.cfClient.Config.HttpClient != nil {
@@ -379,7 +379,6 @@ func (b *backend) operationConfigWrite(ctx context.Context, req *logical.Request
 			b.cfClientTainted = false
 		}
 		b.cfClientMu.Unlock()
-
 
 	} else {
 		_, err = b.updateCFClient(ctx, config)
