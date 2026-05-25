@@ -1189,7 +1189,6 @@ func Test_backend_getCFClientOrRefresh(t *testing.T) {
 	}
 }
 
-
 func newConfig(t *testing.T) *models.Configuration {
 	t.Helper()
 	return &models.Configuration{
@@ -1199,4 +1198,3 @@ func newConfig(t *testing.T) *models.Configuration {
 		CFPassword: "password",
 	}
 }
-
