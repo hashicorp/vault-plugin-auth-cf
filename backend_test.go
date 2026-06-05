@@ -17,7 +17,6 @@ import (
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-secure-stdlib/parseutil"
-	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -212,6 +211,111 @@ func TestBackendMTLS(t *testing.T) {
 	t.Run("login", env.Login)
 }
 
+func TestBackendForceNewClient(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	storage := &logical.InmemStorage{}
+
+	testCerts, err := certificates.Generate(cf.FoundServiceGUID, cf.FoundOrgGUID, cf.FoundSpaceGUID, cf.FoundAppGUID, "10.255.181.105")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := testCerts.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	invalidCaCertBytes, err := ioutil.ReadFile("testdata/real-certificates/ca.crt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cfServer := cf.MockServer(false, nil)
+	defer cfServer.Close()
+
+	testConf := &models.Configuration{
+		IdentityCACertificates: []string{testCerts.CACertificate, string(invalidCaCertBytes)},
+		CFAPIAddr:              cfServer.URL,
+		CFUsername:             cf.AuthUsername,
+		CFPassword:             cf.AuthPassword,
+		CFClientID:             cf.AuthClientID,
+		CFClientSecret:         cf.AuthClientSecret,
+		CFTimeout:              30 * time.Second,
+		LoginMaxSecNotBefore:   5,
+		LoginMaxSecNotAfter:    1,
+		ForceNewClient:         true,
+	}
+
+	be, err := Factory(ctx, &logical.BackendConfig{
+		StorageView: storage,
+		Logger:      hclog.Default(),
+		System: &logical.StaticSystemView{
+			DefaultLeaseTTLVal: time.Hour,
+			MaxLeaseTTLVal:     time.Hour,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsedCIDRs, err := parseutil.ParseAddrs([]string{"10.255.181.105/24"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	env := &Env{
+		Ctx:      ctx,
+		Storage:  storage,
+		Backend:  be,
+		TestConf: testConf,
+		TestRole: &models.RoleEntry{
+			BoundAppIDs:      []string{cf.FoundAppGUID},
+			BoundSpaceIDs:    []string{cf.FoundSpaceGUID},
+			BoundOrgIDs:      []string{cf.FoundOrgGUID},
+			BoundInstanceIDs: []string{cf.FoundServiceGUID},
+			BoundCIDRs:       parsedCIDRs,
+			Policies:         []string{"default", "foo"},
+			TTL:              60,
+			MaxTTL:           2 * 60,
+			Period:           5 * 60,
+		},
+		TestCerts: testCerts,
+	}
+	b := env.Backend.(*backend)
+
+	require.Nil(t, b.cfClient, "expected the cached CF client to be nil")
+	// Exercise all the endpoints with ForceNewClient=true
+	t.Run("create config with force_new_client set", env.CreateConfig)
+	t.Run("read config with force_new_client set", env.ReadConfig)
+	t.Run("create role", env.CreateRole)
+	t.Run("login with force_new_client set", env.Login)
+
+	// Test that login still works with force_new_client=true (creates a fresh CF client each time)
+	t.Run("second login with force_new_client set", env.Login)
+	require.Nil(t, b.cfClient, "expected the cached CF client to be nil")
+
+	//Update force_new_client to false and verify that CF client is cached
+	t.Run("update config with force_new_client unset", func(t *testing.T) {
+		env.UpdateConfigWithForceNewClient(t, false)
+	})
+
+	t.Run("read config with force_new_client unset", env.ReadConfig)
+	t.Run("login with force_new_client unset", env.Login)
+	originalCFClient := b.cfClient
+	require.NotNil(t, originalCFClient, "expected the cached CF client to be not nil")
+	t.Run("login again with force_new_client unset", env.Login)
+	assert.Equal(t, originalCFClient, b.cfClient, "expected the cached CF client to be reused")
+
+	// Test that login works when we update the force_new_client to true again
+	t.Run("update config with force_new_client set", func(t *testing.T) {
+		env.UpdateConfigWithForceNewClient(t, true)
+	})
+
+	t.Run("read config with force_new_client set", env.ReadConfig)
+	t.Run("login with force_new_client set", env.Login)
+}
+
 type Env struct {
 	Ctx     context.Context
 	Storage logical.Storage
@@ -282,6 +386,7 @@ func (e *Env) CreateConfig(t *testing.T) {
 			"cf_timeout":                    e.TestConf.CFTimeout,
 			"login_max_seconds_not_before":  12,
 			"login_max_seconds_not_after":   13,
+			"force_new_client":              e.TestConf.ForceNewClient,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Ctx, req)
@@ -338,6 +443,9 @@ func (e *Env) ReadConfig(t *testing.T) {
 	if resp.Data["cf_timeout"] != e.TestConf.CFTimeout.Seconds() {
 		t.Fatalf("expected %f but received %f", e.TestConf.CFTimeout.Seconds(), resp.Data["cf_timeout"])
 	}
+	if resp.Data["force_new_client"] != e.TestConf.ForceNewClient {
+		t.Fatalf("expected %t but received %v", e.TestConf.ForceNewClient, resp.Data["force_new_client"])
+	}
 }
 
 func (e *Env) UpdateConfig(t *testing.T) {
@@ -347,6 +455,25 @@ func (e *Env) UpdateConfig(t *testing.T) {
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
 			"identity_ca_certificates": []string{"foo1", "foo2"},
+		},
+	}
+	resp, err := e.Backend.HandleRequest(e.Ctx, req)
+	if err != nil || (resp != nil && resp.IsError()) {
+		t.Fatalf("bad: resp: %#v\nerr:%v", resp, err)
+	}
+	if resp != nil {
+		t.Fatal("expected nil response to represent a 204")
+	}
+}
+
+func (e *Env) UpdateConfigWithForceNewClient(t *testing.T, forceNewClient bool) {
+	e.TestConf.ForceNewClient = forceNewClient
+	req := &logical.Request{
+		Operation: logical.UpdateOperation,
+		Path:      "config",
+		Storage:   e.Storage,
+		Data: map[string]interface{}{
+			"force_new_client": forceNewClient,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Ctx, req)
@@ -1062,101 +1189,6 @@ func Test_backend_getCFClientOrRefresh(t *testing.T) {
 	}
 }
 
-func Test_backend_initialize(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.Background()
-
-	defaultConfig := newConfig(t)
-	defaultInitReq := initReq(t, ctx, defaultConfig)
-
-	type initializeTest struct {
-		cfClientTest
-		req           *logical.InitializationRequest
-		name          string
-		wantClientSet bool
-	}
-
-	tests := []initializeTest{
-		{
-			name:          "valid-server-running",
-			wantClientSet: true,
-			cfClientTest: cfClientTest{
-				config:         newConfig(t),
-				withMockServer: true,
-				wantErr:        assert.NoError,
-			},
-		},
-		{
-			name:          "invalid-server-not-running",
-			wantClientSet: false,
-			req:           defaultInitReq,
-			cfClientTest: cfClientTest{
-				config:         newConfig(t),
-				wantErr:        assert.NoError,
-				withMockServer: false,
-			},
-		},
-		{
-			name: "invalid-nil-init-request",
-			cfClientTest: cfClientTest{
-				wantErr: assert.Error,
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			b := &backend{
-				Backend:        &framework.Backend{},
-				lastConfigHash: tt.lastConfigHash,
-				cfClient:       tt.cfClient,
-			}
-
-			var s *httptest.Server
-			var expectConfigHash [32]byte
-			var err error
-
-			if tt.lastConfigHash != nil && !tt.setConfigHash {
-				expectConfigHash = *tt.lastConfigHash
-			}
-
-			if tt.withMockServer {
-				require.NotNil(t, tt.config, "test %s: config is nil", tt.name)
-				s = cf.MockServer(false, nil)
-				t.Cleanup(func() {
-					if s != nil {
-						s.Close()
-					}
-				})
-
-				tt.config.CFAPIAddr = s.URL
-				expectConfigHash, err = tt.config.Hash()
-				if err != nil {
-					require.FailNow(t, err.Error())
-				}
-
-				if tt.req == nil {
-					tt.req = initReq(t, ctx, tt.config)
-				}
-			}
-
-			err = b.initialize(ctx, tt.req)
-			if !tt.wantErr(t, err, fmt.Sprintf("initialize(%v, %v)", ctx, tt.config)) {
-				return
-			}
-
-			if tt.wantClientSet {
-				assert.NotNilf(t, b.cfClient, "initialize(%v, %v)", ctx, tt.config)
-				assert.NotNilf(t, b.lastConfigHash, "initialize(%v, %v)", ctx, tt.config)
-				assert.Equalf(t, expectConfigHash, *b.lastConfigHash, "initialize(%v, %v)", ctx, tt.config)
-			} else {
-				assert.Nilf(t, b.cfClient, "initialize(%v, %v)", ctx, tt.config)
-				assert.Nilf(t, b.lastConfigHash, "initialize(%v, %v)", ctx, tt.config)
-			}
-		})
-	}
-}
-
 func newConfig(t *testing.T) *models.Configuration {
 	t.Helper()
 	return &models.Configuration{
@@ -1164,16 +1196,5 @@ func newConfig(t *testing.T) *models.Configuration {
 		CFAPIAddr:  "https://api.example.com",
 		CFUsername: "admin",
 		CFPassword: "password",
-	}
-}
-
-func initReq(t *testing.T, ctx context.Context, config *models.Configuration) *logical.InitializationRequest {
-	t.Helper()
-	entry, err := logical.StorageEntryJSON(configStorageKey, config)
-	require.NoError(t, err)
-	storage := &logical.InmemStorage{}
-	require.NoError(t, storage.Put(ctx, entry))
-	return &logical.InitializationRequest{
-		Storage: storage,
 	}
 }

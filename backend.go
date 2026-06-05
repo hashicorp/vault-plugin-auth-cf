@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/cloudfoundry-community/go-cfclient"
 	"github.com/hashicorp/go-cleanhttp"
@@ -46,8 +47,7 @@ func Factory(ctx context.Context, conf *logical.BackendConfig) (logical.Backend,
 			b.pathRoles(),
 			b.pathLogin(),
 		},
-		BackendType:    logical.TypeCredential,
-		InitializeFunc: b.initialize,
+		BackendType: logical.TypeCredential,
 	}
 	if err := b.Setup(ctx, conf); err != nil {
 		return nil, err
@@ -182,6 +182,11 @@ func (b *backend) newCFClient(_ context.Context, config *models.Configuration) (
 
 	clientConf.HttpClient.Transport = &http.Transport{
 		TLSClientConfig: tlsConfig,
+		// IdleConnTimeout bounds how long idle keep-alive connections linger in
+		// the per-request transport before being closed. Without this, abandoned
+		// transports accumulate open connections until the GC runs.
+		// 90s matches Go's DefaultTransport.
+		IdleConnTimeout: 90 * time.Second,
 	}
 
 	// unfortunately, cfclient.NewClient() has a nasty side effect of reaching out
@@ -189,28 +194,4 @@ func (b *backend) newCFClient(_ context.Context, config *models.Configuration) (
 	// the call. The v3 of go-cfclient does not have this issue. Updating to v3
 	// should be a priority.
 	return cfclient.NewClient(clientConf)
-}
-
-func (b *backend) initialize(ctx context.Context, req *logical.InitializationRequest) error {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-
-	if req == nil {
-		return fmt.Errorf("initialization request is nil")
-	}
-
-	config, err := getConfig(ctx, req.Storage)
-	if err != nil {
-		b.Logger().Warn("init: failed to get the config from storage", "error", err)
-		return nil
-	}
-
-	if config != nil {
-		if _, err := b.updateCFClient(ctx, config); err != nil {
-			// We only log an error here, since we want the plugin to be able to come up.
-			// Subsequent calls to the plugin will attempt to update the client again.
-			b.Logger().Warn("init: failed to update CF client", "error", err)
-		}
-	}
-	return nil
 }
