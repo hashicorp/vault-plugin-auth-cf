@@ -1,3 +1,9 @@
+## v0.21.1
+### June 10, 2026
+
+* Prepare for v0.21.1 release (#155)
+* backport of commit 30aa27decce197ff5bf03a5188799fc6592e6ffb (#150)
+
 ## Unreleased
 ## v0.23.0
 ### March 18, 2026
