@@ -1,3 +1,10 @@
+## v0.23.1
+### June 10, 2026
+
+* Bumped go from 1.26.1 to 1.26.4 (#153)
+* Automated dependency upgrades (#132)
+* VAULT-40025 Add configuration to optionally revert to pre-0.18.0 client behavior (#148)
+
 ## Unreleased
 ## v0.23.0
 ### March 18, 2026
