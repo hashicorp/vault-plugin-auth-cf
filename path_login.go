@@ -68,9 +68,38 @@ func (b *backend) pathLogin() *framework.Path {
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.UpdateOperation: &framework.PathOperation{
 				Callback: b.operationLoginUpdate,
+				Summary:  "Authenticate a Cloud Foundry instance with Vault.",
+				Responses: map[int][]framework.Response{
+					200: {{
+						Description: "OK",
+						Fields: map[string]*framework.FieldSchema{
+							"lease_duration": {
+								Type:        framework.TypeInt,
+								Description: "Duration of the token lease in seconds.",
+							},
+							"renewable": {
+								Type:        framework.TypeBool,
+								Description: "Whether the token is renewable.",
+							},
+							"metadata": {
+								Type:        framework.TypeMap,
+								Description: "Metadata associated with the token.",
+							},
+							"policies": {
+								Type:        framework.TypeStringSlice,
+								Description: "Policies assigned to the token.",
+							},
+							"display_name": {
+								Type:        framework.TypeString,
+								Description: "Display name of the authenticated entity.",
+							},
+						},
+					}},
+				},
 			},
 			logical.ResolveRoleOperation: &framework.PathOperation{
 				Callback: b.resolveRole,
+				Summary:  "Resolve the role for a Cloud Foundry login request.",
 			},
 		},
 		HelpSynopsis:    pathLoginSyn,
@@ -483,9 +512,7 @@ func getOrErr(fieldName string, from interface{}) (string, error) {
 	}
 }
 
-const pathLoginSyn = `
-Authenticates an entity with Vault.
-`
+const pathLoginSyn = "Authenticate Cloud Foundry entities with Vault."
 
 const pathLoginDesc = `
 Authenticate CF entities using a client certificate issued by the 

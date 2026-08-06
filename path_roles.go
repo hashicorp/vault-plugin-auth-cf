@@ -26,6 +26,18 @@ func (b *backend) pathListRoles() *framework.Path {
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.ListOperation: &framework.PathOperation{
 				Callback: b.operationRolesList,
+				Summary:  "List the existing Cloud Foundry auth roles.",
+				Responses: map[int][]framework.Response{
+					200: {{
+						Description: "OK",
+						Fields: map[string]*framework.FieldSchema{
+							"keys": {
+								Type:        framework.TypeStringSlice,
+								Description: "List of role names.",
+							},
+						},
+					}},
+				},
 			},
 		},
 		HelpSynopsis:    pathListRolesHelpSyn,
@@ -126,15 +138,91 @@ an acceptable IP address described by the certificate presented.`,
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.CreateOperation: &framework.PathOperation{
 				Callback: b.operationRolesCreateUpdate,
+				Summary:  "Create a new Cloud Foundry auth role.",
+				Responses: map[int][]framework.Response{
+					204: {{Description: "No Content"}},
+				},
 			},
 			logical.UpdateOperation: &framework.PathOperation{
 				Callback: b.operationRolesCreateUpdate,
+				Summary:  "Update an existing Cloud Foundry auth role.",
+				Responses: map[int][]framework.Response{
+					204: {{Description: "No Content"}},
+				},
 			},
 			logical.ReadOperation: &framework.PathOperation{
 				Callback: b.operationRolesRead,
+				Summary:  "Return the configuration for a named Cloud Foundry auth role.",
+				Responses: map[int][]framework.Response{
+					200: {{
+						Description: "OK",
+						Fields: map[string]*framework.FieldSchema{
+							"bound_application_ids": {
+								Type:        framework.TypeCommaStringSlice,
+								Description: "Bound CF application IDs.",
+							},
+							"bound_space_ids": {
+								Type:        framework.TypeCommaStringSlice,
+								Description: "Bound CF space IDs.",
+							},
+							"bound_organization_ids": {
+								Type:        framework.TypeCommaStringSlice,
+								Description: "Bound CF organization IDs.",
+							},
+							"bound_instance_ids": {
+								Type:        framework.TypeCommaStringSlice,
+								Description: "Bound CF instance IDs.",
+							},
+							"disable_ip_matching": {
+								Type:        framework.TypeBool,
+								Description: "Whether IP address matching is disabled.",
+							},
+							"token_bound_cidrs": {
+								Type:        framework.TypeSlice,
+								Description: "List of token-bound CIDR blocks.",
+							},
+							"token_explicit_max_ttl": {
+								Type:        framework.TypeInt,
+								Description: "Duration in seconds of the explicit maximum TTL.",
+							},
+							"token_max_ttl": {
+								Type:        framework.TypeInt,
+								Description: "Maximum TTL of the token in seconds.",
+							},
+							"token_no_default_policy": {
+								Type:        framework.TypeBool,
+								Description: "Whether the default policy is excluded from the token.",
+							},
+							"token_period": {
+								Type:        framework.TypeInt,
+								Description: "Renewal period of the token in seconds.",
+							},
+							"token_policies": {
+								Type:        framework.TypeSlice,
+								Description: "List of policies on the token.",
+							},
+							"token_type": {
+								Type:        framework.TypeString,
+								Description: "Type of token to generate.",
+							},
+							"token_ttl": {
+								Type:        framework.TypeInt,
+								Description: "Lifetime of the token in seconds.",
+							},
+							"token_num_uses": {
+								Type:        framework.TypeInt,
+								Description: "Maximum number of uses for the token.",
+							},
+						},
+					}},
+				},
 			},
 			logical.DeleteOperation: &framework.PathOperation{
 				Callback: b.operationRolesDelete,
+				Summary:  "Delete a named Cloud Foundry auth role.",
+				Responses: map[int][]framework.Response{
+					204: {{Description: "No Content"}},
+				},
 			},
 		},
 		HelpSynopsis:    pathRolesHelpSyn,
@@ -318,9 +406,7 @@ const pathListRolesHelpSyn = "List the existing roles in this backend."
 
 const pathListRolesHelpDesc = "Roles will be listed by the role name."
 
-const pathRolesHelpSyn = `
-Read, write and reference policies and roles that tokens can be made for.
-`
+const pathRolesHelpSyn = "Manage roles used for authenticating Cloud Foundry instances."
 
 const pathRolesHelpDesc = `
 This path allows you to read and write roles that are used to

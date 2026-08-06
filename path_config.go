@@ -173,20 +173,80 @@ Set low to reduce the opportunity for replay attacks.`,
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.UpdateOperation: &framework.PathOperation{
 				Callback: b.operationConfigWrite,
+				Summary:  "Configure the Cloud Foundry auth method.",
 				DisplayAttrs: &framework.DisplayAttributes{
 					OperationVerb: "configure",
+				},
+				Responses: map[int][]framework.Response{
+					204: {{Description: "No Content"}},
 				},
 			},
 			logical.ReadOperation: &framework.PathOperation{
 				Callback: b.operationConfigRead,
+				Summary:  "Return the current Cloud Foundry auth method configuration.",
 				DisplayAttrs: &framework.DisplayAttributes{
 					OperationSuffix: "configuration",
+				},
+				Responses: map[int][]framework.Response{
+					200: {{
+						Description: "OK",
+						Fields: map[string]*framework.FieldSchema{
+							"version": {
+								Type:        framework.TypeInt,
+								Description: "Configuration schema version.",
+							},
+							"identity_ca_certificates": {
+								Type:        framework.TypeStringSlice,
+								Description: "PEM-format CA certificates used to verify instance certificates.",
+							},
+							"cf_api_trusted_certificates": {
+								Type:        framework.TypeStringSlice,
+								Description: "PEM-format CA certificates trusted for the CF API.",
+							},
+							"cf_api_mutual_tls_certificate": {
+								Type:        framework.TypeString,
+								Description: "PEM-format certificate used for mutual TLS with the CF API.",
+							},
+							"cf_api_addr": {
+								Type:        framework.TypeString,
+								Description: "Address of the CF API.",
+							},
+							"cf_username": {
+								Type:        framework.TypeString,
+								Description: "Username for the CF API.",
+							},
+							"cf_timeout": {
+								Type:        framework.TypeInt,
+								Description: "Timeout in seconds for CF API calls.",
+							},
+							"cf_client_id": {
+								Type:        framework.TypeString,
+								Description: "Client ID for the CF API.",
+							},
+							"login_max_seconds_not_before": {
+								Type:        framework.TypeInt,
+								Description: "Maximum acceptable age of a signing_time in seconds.",
+							},
+							"login_max_seconds_not_after": {
+								Type:        framework.TypeInt,
+								Description: "Maximum acceptable future offset of a signing_time in seconds.",
+							},
+							"force_new_client": {
+								Type:        framework.TypeBool,
+								Description: "Whether a new CF client is created for every login request.",
+							},
+						},
+					}},
 				},
 			},
 			logical.DeleteOperation: &framework.PathOperation{
 				Callback: b.operationConfigDelete,
+				Summary:  "Delete the Cloud Foundry auth method configuration.",
 				DisplayAttrs: &framework.DisplayAttributes{
 					OperationSuffix: "configuration",
+				},
+				Responses: map[int][]framework.Response{
+					204: {{Description: "No Content"}},
 				},
 			},
 		},
@@ -491,9 +551,7 @@ func deprecationText(newParam, oldParam string) string {
 	return fmt.Sprintf("Use %q instead. If this and %q are both specified, only %q will be used.", newParam, oldParam, newParam)
 }
 
-const pathConfigSyn = `
-Provide Vault with the CA certificate used to issue all client certificates.
-`
+const pathConfigSyn = "Configure the CA certificate used to verify Cloud Foundry instance certificates."
 
 const pathConfigDesc = `
 When a login is attempted using a CF client certificate, Vault will verify
