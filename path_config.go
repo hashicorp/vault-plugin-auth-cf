@@ -172,8 +172,9 @@ Set low to reduce the opportunity for replay attacks.`,
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.UpdateOperation: &framework.PathOperation{
-				Callback: b.operationConfigWrite,
-				Summary:  "Configure the Cloud Foundry auth method.",
+				Callback:    b.operationConfigWrite,
+				Summary:     "Configure the Cloud Foundry auth method.",
+				Description: "Creates or updates the Cloud Foundry auth method configuration, including CA certificates, API address, credentials, and clock-drift tolerances.",
 				DisplayAttrs: &framework.DisplayAttributes{
 					OperationVerb: "configure",
 				},
@@ -182,8 +183,9 @@ Set low to reduce the opportunity for replay attacks.`,
 				},
 			},
 			logical.ReadOperation: &framework.PathOperation{
-				Callback: b.operationConfigRead,
-				Summary:  "Return the current Cloud Foundry auth method configuration.",
+				Callback:    b.operationConfigRead,
+				Summary:     "Return the current Cloud Foundry auth method configuration.",
+				Description: "Returns all non-sensitive configuration fields. Deprecated PCF fields are included in the response with warnings if they were previously set.",
 				DisplayAttrs: &framework.DisplayAttributes{
 					OperationSuffix: "configuration",
 				},
@@ -235,13 +237,26 @@ Set low to reduce the opportunity for replay attacks.`,
 								Type:        framework.TypeBool,
 								Description: "Whether a new CF client is created for every login request.",
 							},
+							"pcf_api_trusted_certificates": {
+								Type:        framework.TypeStringSlice,
+								Description: "Deprecated. PEM-format CA certificates trusted for the CF API (legacy PCF field).",
+							},
+							"pcf_api_addr": {
+								Type:        framework.TypeString,
+								Description: "Deprecated. Address of the CF API (legacy PCF field).",
+							},
+							"pcf_username": {
+								Type:        framework.TypeString,
+								Description: "Deprecated. Username for the CF API (legacy PCF field).",
+							},
 						},
 					}},
 				},
 			},
 			logical.DeleteOperation: &framework.PathOperation{
-				Callback: b.operationConfigDelete,
-				Summary:  "Delete the Cloud Foundry auth method configuration.",
+				Callback:    b.operationConfigDelete,
+				Summary:     "Delete the Cloud Foundry auth method configuration.",
+				Description: "Removes the stored Cloud Foundry auth method configuration. Any subsequent login attempts will fail until the configuration is restored.",
 				DisplayAttrs: &framework.DisplayAttributes{
 					OperationSuffix: "configuration",
 				},
