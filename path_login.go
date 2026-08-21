@@ -86,7 +86,7 @@ func (b *backend) pathLogin() *framework.Path {
 								Description: "Metadata associated with the token.",
 							},
 							"policies": {
-								Type:        framework.TypeSlice,
+								Type:        framework.TypeStringSlice,
 								Description: "Policies assigned to the token.",
 							},
 							"display_name": {

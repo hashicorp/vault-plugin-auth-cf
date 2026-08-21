@@ -172,9 +172,8 @@ Set low to reduce the opportunity for replay attacks.`,
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.UpdateOperation: &framework.PathOperation{
-				Callback:    b.operationConfigWrite,
-				Summary:     "Configure the Cloud Foundry auth method.",
-				Description: "Creates or updates the Cloud Foundry auth method configuration, including CA certificates, API address, credentials, and clock-drift tolerances.",
+				Callback: b.operationConfigWrite,
+				Summary:  "Configure the Cloud Foundry auth method.",
 				DisplayAttrs: &framework.DisplayAttributes{
 					OperationVerb: "configure",
 				},
@@ -183,9 +182,8 @@ Set low to reduce the opportunity for replay attacks.`,
 				},
 			},
 			logical.ReadOperation: &framework.PathOperation{
-				Callback:    b.operationConfigRead,
-				Summary:     "Return the current Cloud Foundry auth method configuration.",
-				Description: "Returns all non-sensitive configuration fields. Deprecated PCF fields are included in the response with warnings if they were previously set.",
+				Callback: b.operationConfigRead,
+				Summary:  "Return the current Cloud Foundry auth method configuration.",
 				DisplayAttrs: &framework.DisplayAttributes{
 					OperationSuffix: "configuration",
 				},
@@ -254,9 +252,8 @@ Set low to reduce the opportunity for replay attacks.`,
 				},
 			},
 			logical.DeleteOperation: &framework.PathOperation{
-				Callback:    b.operationConfigDelete,
-				Summary:     "Delete the Cloud Foundry auth method configuration.",
-				Description: "Removes the stored Cloud Foundry auth method configuration. Any subsequent login attempts will fail until the configuration is restored.",
+				Callback: b.operationConfigDelete,
+				Summary:  "Delete the Cloud Foundry auth method configuration.",
 				DisplayAttrs: &framework.DisplayAttributes{
 					OperationSuffix: "configuration",
 				},
