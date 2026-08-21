@@ -158,19 +158,19 @@ an acceptable IP address described by the certificate presented.`,
 						Description: "OK",
 						Fields: map[string]*framework.FieldSchema{
 							"bound_application_ids": {
-								Type:        framework.TypeCommaStringSlice,
+								Type:        framework.TypeSlice,
 								Description: "Bound CF application IDs.",
 							},
 							"bound_space_ids": {
-								Type:        framework.TypeCommaStringSlice,
+								Type:        framework.TypeSlice,
 								Description: "Bound CF space IDs.",
 							},
 							"bound_organization_ids": {
-								Type:        framework.TypeCommaStringSlice,
+								Type:        framework.TypeSlice,
 								Description: "Bound CF organization IDs.",
 							},
 							"bound_instance_ids": {
-								Type:        framework.TypeCommaStringSlice,
+								Type:        framework.TypeSlice,
 								Description: "Bound CF instance IDs.",
 							},
 							"disable_ip_matching": {
