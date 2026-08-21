@@ -196,11 +196,11 @@ Set low to reduce the opportunity for replay attacks.`,
 								Description: "Configuration schema version.",
 							},
 							"identity_ca_certificates": {
-								Type:        framework.TypeStringSlice,
+								Type:        framework.TypeSlice,
 								Description: "PEM-format CA certificates used to verify instance certificates.",
 							},
 							"cf_api_trusted_certificates": {
-								Type:        framework.TypeStringSlice,
+								Type:        framework.TypeSlice,
 								Description: "PEM-format CA certificates trusted for the CF API.",
 							},
 							"cf_api_mutual_tls_certificate": {
@@ -234,18 +234,6 @@ Set low to reduce the opportunity for replay attacks.`,
 							"force_new_client": {
 								Type:        framework.TypeBool,
 								Description: "Whether a new CF client is created for every login request.",
-							},
-							"pcf_api_trusted_certificates": {
-								Type:        framework.TypeStringSlice,
-								Description: "Deprecated. PEM-format CA certificates trusted for the CF API (legacy PCF field).",
-							},
-							"pcf_api_addr": {
-								Type:        framework.TypeString,
-								Description: "Deprecated. Address of the CF API (legacy PCF field).",
-							},
-							"pcf_username": {
-								Type:        framework.TypeString,
-								Description: "Deprecated. Username for the CF API (legacy PCF field).",
 							},
 						},
 					}},
