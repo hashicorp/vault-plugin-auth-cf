@@ -67,33 +67,12 @@ func (b *backend) pathLogin() *framework.Path {
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.UpdateOperation: &framework.PathOperation{
-				Callback:    b.operationLoginUpdate,
-				Summary:     "Authenticate a Cloud Foundry instance with Vault.",
-				Description: "Validates the CF instance certificate and signature against the configured CA, verifies role constraints, and returns a Vault token if authentication succeeds.",
+				Callback: b.operationLoginUpdate,
+				Summary:  "Authenticate a Cloud Foundry instance with Vault.",
 				Responses: map[int][]framework.Response{
 					200: {{
 						Description: "OK",
 						Fields: map[string]*framework.FieldSchema{
-							"client_token": {
-								Type:        framework.TypeString,
-								Description: "The issued client token.",
-							},
-							"accessor": {
-								Type:        framework.TypeString,
-								Description: "The accessor of the issued client token.",
-							},
-							"policies": {
-								Type:        framework.TypeSlice,
-								Description: "List of policies attached to the token.",
-							},
-							"token_policies": {
-								Type:        framework.TypeSlice,
-								Description: "List of token-scoped policies.",
-							},
-							"metadata": {
-								Type:        framework.TypeMap,
-								Description: "Metadata associated with the token.",
-							},
 							"lease_duration": {
 								Type:        framework.TypeInt,
 								Description: "Duration of the token lease in seconds.",
@@ -102,25 +81,13 @@ func (b *backend) pathLogin() *framework.Path {
 								Type:        framework.TypeBool,
 								Description: "Whether the token is renewable.",
 							},
-							"entity_id": {
-								Type:        framework.TypeString,
-								Description: "The identity entity ID attached to the token.",
-							},
-							"token_type": {
-								Type:        framework.TypeString,
-								Description: "Type of the issued token.",
-							},
-							"orphan": {
-								Type:        framework.TypeBool,
-								Description: "Whether the token is an orphan.",
-							},
-							"mfa_requirement": {
+							"metadata": {
 								Type:        framework.TypeMap,
-								Description: "MFA requirements, if any.",
+								Description: "Metadata associated with the token.",
 							},
-							"num_uses": {
-								Type:        framework.TypeInt,
-								Description: "Maximum number of uses for the token, or 0 for unlimited.",
+							"policies": {
+								Type:        framework.TypeSlice,
+								Description: "Policies assigned to the token.",
 							},
 							"display_name": {
 								Type:        framework.TypeString,
@@ -131,20 +98,8 @@ func (b *backend) pathLogin() *framework.Path {
 				},
 			},
 			logical.ResolveRoleOperation: &framework.PathOperation{
-				Callback:    b.resolveRole,
-				Summary:     "Resolve the role for a Cloud Foundry login request.",
-				Description: "Validates that the supplied role name exists and returns the resolved role, enabling pre-flight role resolution before a full login attempt.",
-				Responses: map[int][]framework.Response{
-					200: {{
-						Description: "OK",
-						Fields: map[string]*framework.FieldSchema{
-							"role": {
-								Type:        framework.TypeString,
-								Description: "The resolved role name.",
-							},
-						},
-					}},
-				},
+				Callback: b.resolveRole,
+				Summary:  "Resolve the role for a Cloud Foundry login request.",
 			},
 		},
 		HelpSynopsis:    pathLoginSyn,

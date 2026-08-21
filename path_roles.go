@@ -25,9 +25,8 @@ func (b *backend) pathListRoles() *framework.Path {
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.ListOperation: &framework.PathOperation{
-				Callback:    b.operationRolesList,
-				Summary:     "List the existing Cloud Foundry auth roles.",
-				Description: "Returns a list of all role names configured in this Cloud Foundry auth method.",
+				Callback: b.operationRolesList,
+				Summary:  "List the existing Cloud Foundry auth roles.",
 				Responses: map[int][]framework.Response{
 					200: {{
 						Description: "OK",
@@ -138,43 +137,40 @@ an acceptable IP address described by the certificate presented.`,
 		ExistenceCheck: b.operationRolesExistenceCheck,
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.CreateOperation: &framework.PathOperation{
-				Callback:    b.operationRolesCreateUpdate,
-				Summary:     "Create a new Cloud Foundry auth role.",
-				Description: "Creates a role with the specified constraints and token parameters. The role is used to authenticate CF instances and issue Vault tokens.",
+				Callback: b.operationRolesCreateUpdate,
+				Summary:  "Create a new Cloud Foundry auth role.",
 				Responses: map[int][]framework.Response{
 					204: {{Description: "No Content"}},
 				},
 			},
 			logical.UpdateOperation: &framework.PathOperation{
-				Callback:    b.operationRolesCreateUpdate,
-				Summary:     "Update an existing Cloud Foundry auth role.",
-				Description: "Updates the constraints and token parameters of an existing role. Only fields supplied in the request are modified.",
+				Callback: b.operationRolesCreateUpdate,
+				Summary:  "Update an existing Cloud Foundry auth role.",
 				Responses: map[int][]framework.Response{
 					204: {{Description: "No Content"}},
 				},
 			},
 			logical.ReadOperation: &framework.PathOperation{
-				Callback:    b.operationRolesRead,
-				Summary:     "Return the configuration for a named Cloud Foundry auth role.",
-				Description: "Returns all constraints and token parameters for the named role, including any deprecated fields that were previously set.",
+				Callback: b.operationRolesRead,
+				Summary:  "Return the configuration for a named Cloud Foundry auth role.",
 				Responses: map[int][]framework.Response{
 					200: {{
 						Description: "OK",
 						Fields: map[string]*framework.FieldSchema{
 							"bound_application_ids": {
-								Type:        framework.TypeCommaStringSlice,
+								Type:        framework.TypeSlice,
 								Description: "Bound CF application IDs.",
 							},
 							"bound_space_ids": {
-								Type:        framework.TypeCommaStringSlice,
+								Type:        framework.TypeSlice,
 								Description: "Bound CF space IDs.",
 							},
 							"bound_organization_ids": {
-								Type:        framework.TypeCommaStringSlice,
+								Type:        framework.TypeSlice,
 								Description: "Bound CF organization IDs.",
 							},
 							"bound_instance_ids": {
-								Type:        framework.TypeCommaStringSlice,
+								Type:        framework.TypeSlice,
 								Description: "Bound CF instance IDs.",
 							},
 							"disable_ip_matching": {
@@ -217,34 +213,13 @@ an acceptable IP address described by the certificate presented.`,
 								Type:        framework.TypeInt,
 								Description: "Maximum number of uses for the token.",
 							},
-							"policies": {
-								Type:        framework.TypeCommaStringSlice,
-								Description: "Deprecated. List of policies on the token. Use token_policies instead.",
-							},
-							"bound_cidrs": {
-								Type:        framework.TypeCommaStringSlice,
-								Description: "Deprecated. List of token-bound CIDR blocks. Use token_bound_cidrs instead.",
-							},
-							"ttl": {
-								Type:        framework.TypeInt,
-								Description: "Deprecated. Lifetime of the token in seconds. Use token_ttl instead.",
-							},
-							"max_ttl": {
-								Type:        framework.TypeInt,
-								Description: "Deprecated. Maximum TTL of the token in seconds. Use token_max_ttl instead.",
-							},
-							"period": {
-								Type:        framework.TypeInt,
-								Description: "Deprecated. Renewal period of the token in seconds. Use token_period instead.",
-							},
 						},
 					}},
 				},
 			},
 			logical.DeleteOperation: &framework.PathOperation{
-				Callback:    b.operationRolesDelete,
-				Summary:     "Delete a named Cloud Foundry auth role.",
-				Description: "Permanently removes the named role. Existing tokens issued by this role are not automatically revoked.",
+				Callback: b.operationRolesDelete,
+				Summary:  "Delete a named Cloud Foundry auth role.",
 				Responses: map[int][]framework.Response{
 					204: {{Description: "No Content"}},
 				},
