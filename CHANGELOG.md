@@ -1,3 +1,11 @@
+## v0.24.0
+### September 10, 2026
+
+* Vault 50080 Upgrade google.golang.org/grpc to v1.83.2 (#168)
+* chore: automated Go/dependency update via vault-plugin-release (#167)
+* Filled in missing OpenAPI metadata for API endpoints (#165)
+* [CHANGELOG] Prepare for v0.23.1 release (#157)
+
 ## Unreleased
 
 ## v0.23.1
