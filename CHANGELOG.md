@@ -1,3 +1,9 @@
+## v0.24.1
+### October 23, 2026
+
+* Update .go-version and dependencies (#172)
+* [CHANGELOG] Prepare for v0.24.0 release (#169)
+
 ## v0.24.0
 ### September 10, 2026
 
