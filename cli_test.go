@@ -15,6 +15,7 @@ import (
 	"github.com/hashicorp/vault-plugin-auth-cf/signatures"
 	"github.com/hashicorp/vault-plugin-auth-cf/testing/certificates"
 	"github.com/hashicorp/vault/api"
+	"github.com/stretchr/testify/require"
 )
 
 const (
@@ -140,3 +141,15 @@ const successResponse = `{
 		"token_type": "service"
 	}
 }`
+
+// TestCLIHandler_Help verifies that Help uses BinaryName in the commands it
+// shows and falls back to "vault" when it's unset.
+func TestCLIHandler_Help(t *testing.T) {
+	t.Parallel()
+
+	require.Contains(t, (&CLIHandler{}).Help(), "vault login -method=cf")
+
+	help := (&CLIHandler{BinaryName: "vault-client"}).Help()
+	require.Contains(t, help, "vault-client login -method=cf")
+	require.NotContains(t, help, "vault login")
+}

@@ -15,7 +15,10 @@ import (
 	"github.com/hashicorp/vault/api"
 )
 
-type CLIHandler struct{}
+type CLIHandler struct {
+	// BinaryName is the executable shown in help. It defaults to "vault".
+	BinaryName string
+}
 
 func (h *CLIHandler) Auth(c *api.Client, m map[string]string) (*api.Secret, error) {
 	mount, ok := m["mount"]
@@ -81,20 +84,25 @@ func (h *CLIHandler) Auth(c *api.Client, m map[string]string) (*api.Secret, erro
 }
 
 func (h *CLIHandler) Help() string {
+	binaryName := h.BinaryName
+	if binaryName == "" {
+		binaryName = "vault"
+	}
+
 	help := `
-Usage: vault login -method=cf [CONFIG K=V...]
+Usage: ` + binaryName + ` login -method=cf [CONFIG K=V...]
 
   The CF auth method allows users to authenticate using CF's instance identity service.
 
   The CF credentials may be specified explicitly via the command line:
 
-      $ vault login -method=cf role=...
+      $ ` + binaryName + ` login -method=cf role=...
 
   This will automatically pull from the CF_INSTANCE_CERT and CF_INSTANCE_KEY values
   in your local environment. If they're not available or you wish to override them, 
   they may also be supplied explicitly:
 
-      $ vault login -method=cf role=... cf_instance_cert=... cf_instance_key=...
+      $ ` + binaryName + ` login -method=cf role=... cf_instance_cert=... cf_instance_key=...
 
 Configuration:
 
@@ -106,7 +114,7 @@ Configuration:
 
   mount=<string>
       Path where the CF credential method is mounted. This is usually provided
-      via the -path flag in the "vault login" command, but it can be specified
+      via the -path flag in the "` + binaryName + ` login" command, but it can be specified
       here as well. If specified here, it takes precedence over the value for
       -path. The default value is "cf".
 
